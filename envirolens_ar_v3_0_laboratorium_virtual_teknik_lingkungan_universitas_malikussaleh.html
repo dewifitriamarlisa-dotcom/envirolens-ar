@@ -1,0 +1,2896 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EnviroLens AR v3.0 — Laboratorium Virtual Teknik Lingkungan | Universitas Malikussaleh</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --unimal-obsidian: #03110f;
+            --unimal-emerald: #10b981;
+            --unimal-gold: #eab308;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 35%, #072621 0%, #03110f 70%, #010908 100%);
+            color: #f1f5f9;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+        /* Palet Glassmorphism Berlapis Zamrud Obsidian & Emas UNIMAL */
+        .glass-panel {
+            background: linear-gradient(165deg, rgba(7, 29, 25, 0.90) 0%, rgba(3, 16, 14, 0.92) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(234, 179, 8, 0.26);
+            box-shadow:
+                0 16px 44px rgba(0, 0, 0, 0.65),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: linear-gradient(180deg, rgba(11, 40, 34, 0.80) 0%, rgba(6, 25, 21, 0.84) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(16, 185, 129, 0.22);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .panel-transition {
+            transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+        }
+        /* Custom Range Slider dengan Progress Fill Dinamis */
+        input[type="range"].enviro-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+            background: linear-gradient(
+                90deg,
+                #10b981 0%,
+                #eab308 var(--fill-pct, 30%),
+                rgba(15, 42, 37, 0.95) var(--fill-pct, 30%)
+            );
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+        input[type="range"].enviro-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fef08a, #eab308);
+            cursor: pointer;
+            border: 2px solid #042f2e;
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.85);
+            transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        input[type="range"].enviro-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.22);
+        }
+        /* Scrollbar Halus */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(4, 19, 17, 0.35);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.42);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(234, 179, 8, 0.6);
+        }
+        /* WebAR Video & Grid */
+        #ar-video {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            display: none;
+        }
+        #ar-plane-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            display: none;
+            background-image:
+                linear-gradient(to right, rgba(234, 179, 8, 0.14) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(16, 185, 129, 0.14) 1px, transparent 1px);
+            background-size: 46px 46px;
+            pointer-events: none;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            touch-action: none;
+        }
+        /* Hotspot 3D Melayang Interaktif */
+        .hotspot-badge {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            z-index: 12;
+            cursor: pointer;
+            transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease;
+        }
+        .hotspot-badge:hover {
+            transform: translate(-50%, -114%) scale(1.06);
+            z-index: 18;
+        }
+        .pulse-safe { animation: pulseSafe 2s infinite; }
+        @keyframes pulseSafe {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.85); }
+            70% { box-shadow: 0 0 0 9px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse-warn { animation: pulseWarn 1.8s infinite; }
+        @keyframes pulseWarn {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.85); }
+            70% { box-shadow: 0 0 0 9px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        .pulse-danger { animation: pulseDanger 1.5s infinite; }
+        @keyframes pulseDanger {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.9); }
+            70% { box-shadow: 0 0 0 11px rgba(244, 63, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+        .typing-dot {
+            animation: typingBounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        /* Format Cetak Laporan Akademik A4 Resmi UNIMAL */
+        #print-report-sheet {
+            display: none;
+        }
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 14mm 15mm;
+            }
+            body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                overflow: visible !important;
+                user-select: text !important;
+            }
+            #canvas-container, #hotspot-labels, header, #live-kpi-hud, #left-lab-panel, #bottom-toolbar, #ai-tutor-panel, #xray-legend-card, #toast-box, #welcome-modal, #ar-video, #ar-plane-grid {
+                display: none !important;
+            }
+            #print-report-sheet {
+                display: block !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                font-family: 'Inter', sans-serif;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Feed Kamera WebAR & Grid Proyeksi -->
+    <video id="ar-video" autoplay playsinline muted></video>
+    <div id="ar-plane-grid"></div>
+
+    <!-- Kanvas Utama Three.js 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- Wadah Label Stasiun Pemantauan 3D -->
+    <div id="hotspot-labels" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- ===================================================================== -->
+    <!-- HEADER ATAS: IDENTITAS UNIVERSITAS MALIKUSSALEH & KONTROL UTAMA      -->
+    <!-- ===================================================================== -->
+    <header class="fixed top-2.5 left-2.5 right-2.5 z-30 flex items-center justify-between gap-2 pointer-events-none">
+        <!-- Kartu Identitas Kampus & Program Studi -->
+        <div class="glass-panel rounded-2xl px-3 py-1.5 flex items-center gap-2.5 pointer-events-auto">
+            <!-- Logo Resmi Universitas Malikussaleh -->
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-md shrink-0 overflow-hidden ring-1 ring-amber-400/50" title="Universitas Malikussaleh">
+                <svg id="hdr-logo-unimal-svg" viewBox="0 0 220 260" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="goldGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#facc15"/>
+                            <stop offset="50%" stop-color="#eab308"/>
+                            <stop offset="100%" stop-color="#ca8a04"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M110 12 C94 34, 76 44, 76 62 C52 54, 34 72, 42 98 C46 110, 56 118, 66 122 C54 102, 58 78, 78 74 C86 84, 98 86, 110 74 C122 86, 134 84, 142 74 C162 78, 166 102, 154 122 C164 118, 174 110, 178 98 C186 72, 168 54, 144 62 C144 44, 126 34, 110 12 Z" fill="url(#goldGrad1)"/>
+                    <line x1="110" y1="32" x2="110" y2="66" stroke="#ca8a04" stroke-width="3" stroke-dasharray="4 2"/>
+                    <path d="M96 68 L124 68 L118 76 C128 82, 132 94, 128 106 C125 114, 118 118, 116 124 L124 136 L96 136 L104 124 C102 118, 95 114, 92 106 C88 94, 92 82, 102 76 Z" fill="url(#goldGrad1)"/>
+                    <text x="110" y="103" text-anchor="middle" fill="#1e293b" font-size="16" font-weight="800" font-family="serif">١٩٦٩</text>
+                    <path d="M74 84 A56 56 0 1 0 146 84 A43 43 0 1 1 74 84 Z" fill="#059669"/>
+                    <text x="110" y="218" text-anchor="middle" fill="#0f172a" font-size="22" font-weight="700" font-family="Georgia, serif" letter-spacing="1.5">universitas</text>
+                    <text x="110" y="244" text-anchor="middle" fill="#0f172a" font-size="21" font-weight="900" font-family="Arial, sans-serif" letter-spacing="0.5">MALIKUSSALEH</text>
+                </svg>
+            </div>
+
+            <!-- Logo Program Studi Teknik Lingkungan UNIMAL -->
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-md shrink-0 overflow-hidden ring-1 ring-emerald-400/50" title="Program Studi Teknik Lingkungan UNIMAL">
+                <svg id="hdr-logo-tl-svg" viewBox="0 0 220 260" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="goldGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#fde047"/>
+                            <stop offset="50%" stop-color="#eab308"/>
+                            <stop offset="100%" stop-color="#b45309"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M110 10 C94 32, 76 42, 76 60 C52 52, 34 70, 42 96 C46 108, 56 116, 66 120 C54 100, 58 76, 78 72 C86 82, 98 84, 110 72 C122 84, 134 82, 142 72 C162 76, 166 100, 154 120 C164 116, 174 108, 178 96 C186 70, 168 52, 144 60 C144 42, 126 32, 110 10 Z" fill="url(#goldGrad2)"/>
+                    <line x1="110" y1="30" x2="110" y2="64" stroke="#b45309" stroke-width="3" stroke-dasharray="4 2"/>
+                    <path d="M96 66 L124 66 L118 74 C128 80, 132 92, 128 104 C125 112, 118 116, 116 122 L124 134 L96 134 L104 122 C102 116, 95 112, 92 104 C88 92, 92 80, 102 74 Z" fill="url(#goldGrad2)"/>
+                    <text x="110" y="101" text-anchor="middle" fill="#1e293b" font-size="15" font-weight="800" font-family="serif">١٩٦٩</text>
+                    <path d="M74 82 A56 56 0 1 0 146 82 A44 44 0 1 1 74 82 Z" fill="#047857"/>
+                    <g fill="#065f46">
+                        <rect x="74" y="114" width="3" height="28"/>
+                        <path d="M75.5 114 L63 106 L74 116 L75.5 100 L77 116 L88 108 Z"/>
+                        <rect x="86" y="120" width="9" height="22"/>
+                        <rect x="97" y="115" width="10" height="27"/>
+                        <rect x="109" y="123" width="8" height="19"/>
+                    </g>
+                    <path d="M68 148 Q90 142 110 150 T146 148 Q128 162 108 156 T68 148 Z" fill="#0284c7"/>
+                    <path d="M74 157 Q94 152 112 159 T142 157 Q124 168 106 163 T74 157 Z" fill="#38bdf8"/>
+                    <path d="M138 78 C158 92, 162 124, 140 146 C128 130, 128 102, 138 78 Z" fill="#10b981"/>
+                    <path d="M139 84 Q144 114 140 143" stroke="#ecfdf5" stroke-width="1.8" fill="none"/>
+                    <text x="110" y="218" text-anchor="middle" fill="#0f172a" font-size="16.5" font-weight="900" font-family="Arial, sans-serif">TEKNIK LINGKUNGAN</text>
+                    <text x="110" y="238" text-anchor="middle" fill="#065f46" font-size="12" font-weight="800" font-family="Arial, sans-serif">UNIVERSITAS MALIKUSSALEH</text>
+                </svg>
+            </div>
+
+            <!-- Judul Aplikasi & Identitas Prodi -->
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white">EnviroLens <span class="text-amber-400">AR v3.0</span></h1>
+                    <span class="hidden lg:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">Prodi Teknik Lingkungan • UNIMAL</span>
+                </div>
+                <p id="hdr-subtitle" class="text-[11px] text-slate-300 hidden sm:block">Laboratorium Virtual Pengantar Teknik Lingkungan (Air, Tanah & Udara)</p>
+            </div>
+        </div>
+
+        <!-- Tombol Navigasi & Kontrol Global -->
+        <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+            <!-- Tombol Panduan & Identitas Praktikan -->
+            <button onclick="toggleWelcomeModal(true)" class="glass-panel hover:bg-emerald-950/90 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1.5 transition border border-amber-400/40 text-amber-200" title="Panduan & Identitas Mahasiswa">
+                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="hidden md:inline">Panduan & Identitas</span>
+            </button>
+
+            <!-- Mode WebAR Kamera -->
+            <button id="btn-ar-mode" onclick="toggleARMode()" class="glass-panel hover:bg-emerald-950/90 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1.5 transition border border-emerald-500/35 text-emerald-200" title="Aktifkan Kamera WebAR">
+                <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span id="ar-btn-text" class="hidden lg:inline">Mode WebAR</span>
+            </button>
+
+            <!-- Toggle Panel Laboratorium Kiri -->
+            <button id="btn-toggle-left" onclick="toggleLeftPanel()" class="glass-panel hover:bg-emerald-950/90 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1.5 transition border border-emerald-500/45 text-slate-100">
+                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <span>Data & Grafik</span>
+            </button>
+
+            <!-- Toggle Panel Asisten Prof. Enviro AI -->
+            <button id="btn-toggle-ai" onclick="toggleAIPanel()" class="glass-panel hover:bg-emerald-950/90 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1.5 transition border border-emerald-400/50 text-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                <span>Prof. Enviro AI</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- FLOATING TOP-CENTER LIVE ENVIRONMENTAL KPI HUD BAR                    -->
+    <!-- ===================================================================== -->
+    <div id="live-kpi-hud" class="fixed top-[62px] left-1/2 -translate-x-1/2 z-20 max-w-[calc(100vw-20px)] pointer-events-auto">
+        <div class="glass-panel rounded-2xl px-3 py-1.5 flex items-center gap-2.5 sm:gap-4 overflow-x-auto whitespace-nowrap text-[11px] border border-amber-400/35">
+            <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-medium">DO Kritis:</span>
+                <span id="hud-do-crit" class="font-mono-code font-bold text-rose-300">3.12 mg/L</span>
+            </div>
+            <span class="text-emerald-800/80">|</span>
+            <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-medium">BOD₅ St.B:</span>
+                <span id="hud-bod-b" class="font-mono-code font-bold text-amber-300">14.7 mg/L</span>
+            </div>
+            <span class="text-emerald-800/80">|</span>
+            <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-medium">TDS Sumur D:</span>
+                <span id="hud-tds-d" class="font-mono-code font-bold text-cyan-300">800 mg/L</span>
+            </div>
+            <span class="text-emerald-800/80">|</span>
+            <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-medium">PM₂.₅ St.B:</span>
+                <span id="hud-pm25-b" class="font-mono-code font-bold text-orange-300">118.8 µg/m³</span>
+            </div>
+            <span class="text-emerald-800/80">|</span>
+            <div class="flex items-center gap-1.5">
+                <span id="hud-pp-dot" class="w-2 h-2 rounded-full bg-rose-500 pulse-danger"></span>
+                <span id="hud-pp-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    PP 22/2021: Melampaui Baku Mutu
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PANEL KIRI: WORKBENCH SIMULASI DATA KUANTITATIF, TELEMETRI & GRAFIK   -->
+    <!-- ===================================================================== -->
+    <aside id="left-lab-panel" class="panel-transition fixed top-[110px] left-2.5 bottom-16 z-20 w-[calc(100vw-20px)] sm:w-[395px] xl:w-[410px] glass-panel rounded-2xl flex flex-col overflow-hidden translate-x-0">
+        <!-- Navigasi 3 Tab Utama Workbench -->
+        <div class="grid grid-cols-3 p-1.5 bg-black/45 border-b border-emerald-900/60 text-[11px] font-bold gap-1 shrink-0">
+            <button id="ltab-params" onclick="switchLeftTab('params')" class="py-1.5 px-2 rounded-xl bg-emerald-500/20 text-amber-300 border border-amber-400/40 transition">
+                1. Parameter & Skenario
+            </button>
+            <button id="ltab-stations" onclick="switchLeftTab('stations')" class="py-1.5 px-2 rounded-xl text-slate-300 hover:text-white transition">
+                2. Telemetri Stasiun
+            </button>
+            <button id="ltab-charts" onclick="switchLeftTab('charts')" class="py-1.5 px-2 rounded-xl text-slate-300 hover:text-white transition">
+                3. Grafik Analitik
+            </button>
+        </div>
+
+        <!-- TAB 1: PARAMETER SIMULASI & SKENARIO -->
+        <div id="lview-params" class="flex-1 overflow-y-auto p-3.5 space-y-3.5 text-xs">
+            <!-- 4 Skenario Preset -->
+            <div class="glass-card p-3 rounded-xl space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-400 uppercase text-[10px] tracking-wider">Pilih Skenario Praktikum</span>
+                    <span id="active-preset-tag" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Baseline</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="applyPreset('baseline')" class="py-2 px-2.5 rounded-xl text-[11px] font-semibold bg-emerald-950/90 hover:bg-emerald-800/70 text-emerald-100 border border-emerald-700/60 text-left transition flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                        <span>1. Kondisi Dasar</span>
+                    </button>
+                    <button onclick="applyPreset('drought')" class="py-2 px-2.5 rounded-xl text-[11px] font-semibold bg-rose-950/75 hover:bg-rose-900/65 text-rose-200 border border-rose-700/60 text-left transition flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
+                        <span>2. Akut Kemarau</span>
+                    </button>
+                    <button onclick="applyPreset('rainstorm')" class="py-2 px-2.5 rounded-xl text-[11px] font-semibold bg-amber-950/75 hover:bg-amber-900/65 text-amber-200 border border-amber-700/60 text-left transition flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                        <span>3. Hujan & Lindi TPA</span>
+                    </button>
+                    <button onclick="applyPreset('integrated')" class="py-2 px-2.5 rounded-xl text-[11px] font-semibold bg-teal-950/85 hover:bg-teal-800/70 text-teal-200 border border-teal-500/50 text-left transition flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                        <span>4. Rekayasa Terpadu</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Numerik + Slider Sinkron -->
+            <div class="glass-card p-3 rounded-xl space-y-3">
+                <div class="flex items-center justify-between border-b border-emerald-800/60 pb-1.5">
+                    <span class="font-bold text-emerald-300 uppercase text-[10px] tracking-wider">Variabel Beban Pencemar & Hidrologi</span>
+                    <span class="text-[10px] text-slate-400">Input Real-Time</span>
+                </div>
+
+                <!-- Debit Limbah Industri Qw (m3/hari) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Debit Limbah Industri (<i>Q<sub>w</sub></i>)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-qw" min="500" max="35000" step="250" value="8640" oninput="syncInput('qw', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-amber-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">m³/hari</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-qw" min="500" max="35000" step="250" value="8640" oninput="syncInput('qw', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Konsentrasi BOD5 Limbah (mg/L) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Konsentrasi BOD<sub>5</sub> Limbah</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-bodw" min="50" max="1500" step="10" value="460" oninput="syncInput('bodw', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-rose-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">mg/L</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-bodw" min="50" max="1500" step="10" value="460" oninput="syncInput('bodw', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Debit Sungai Hulu Qs (m3/detik) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Debit Sungai Hulu (<i>Q<sub>s</sub></i>)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-qs" min="0.5" max="20.0" step="0.5" value="3.5" oninput="syncInput('qs', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-sky-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">m³/detik</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-qs" min="0.5" max="20.0" step="0.5" value="3.5" oninput="syncInput('qs', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Suhu Air Sungai T (C) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Suhu Air Sungai (<i>T</i>)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-temp" min="20" max="35" step="0.5" value="28.0" oninput="syncInput('temp', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-amber-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">°C</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-temp" min="20" max="35" step="0.5" value="28.0" oninput="syncInput('temp', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Curah Hujan P (mm/hari) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Curah Hujan Harian (<i>P</i>)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-rain" min="0" max="150" step="5" value="25" oninput="syncInput('rain', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-cyan-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">mm/hari</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-rain" min="0" max="150" step="5" value="25" oninput="syncInput('rain', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Beban Emisi Partikulat PM2.5 Industri (µg/Nm³) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-200 font-medium">Emisi Partikulat Cerobong (PM<sub>2.5</sub>)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="num-pm25" min="20" max="450" step="10" value="210" oninput="syncInput('pm25', this.value)" class="w-20 bg-black/55 border border-emerald-700/70 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono-code text-orange-300 text-[11px] outline-none">
+                            <span class="text-slate-400 text-[10px] w-11">µg/Nm³</span>
+                        </div>
+                    </div>
+                    <input type="range" id="rng-pm25" min="20" max="450" step="10" value="210" oninput="syncInput('pm25', this.value)" class="w-full enviro-slider">
+                </div>
+
+                <!-- Jenis Lapisan Tanah Akuifer -->
+                <div>
+                    <label class="block text-slate-200 font-medium mb-1">Jenis Lapisan Tanah Akuifer (Konduktivitas Hidrolik <i>K</i>)</label>
+                    <select id="sel-soil" onchange="updateSoilType(this.value)" class="w-full bg-black/65 border border-emerald-700/80 focus:border-amber-400 rounded-xl px-2.5 py-2 text-xs text-white outline-none">
+                        <option value="clay">Lempung (K = 10⁻⁷ m/s • Porositas n = 0,45)</option>
+                        <option value="sandy_silt" selected>Lanau Berpasir (K = 10⁻⁵ m/s • Porositas n = 0,38)</option>
+                        <option value="coarse_sand">Pasir Kasar (K = 10⁻³ m/s • Porositas n = 0,30)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Sakelar Intervensi Rekayasa Lingkungan (Modern Toggle Switches) -->
+            <div class="glass-card p-3 rounded-xl space-y-2.5">
+                <div class="flex items-center justify-between border-b border-emerald-800/60 pb-1.5">
+                    <span class="font-bold text-amber-300 uppercase text-[10px] tracking-wider">Intervensi Teknologi Rekayasa</span>
+                    <span class="text-[10px] text-emerald-300">Visualisasi 3D</span>
+                </div>
+
+                <!-- Toggle 1: IPAL -->
+                <label class="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-black/40 border border-emerald-800/60 cursor-pointer hover:border-amber-400/70 transition">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-semibold text-white">IPAL Biologis–Kimia (Aerasi & Klarifier)</span>
+                        </div>
+                        <div class="text-[10px] text-slate-300 mt-0.5">Efisiensi reduksi beban BOD<sub>5</sub> & COD sebesar 88%</div>
+                    </div>
+                    <div class="relative inline-flex items-center shrink-0">
+                        <input type="checkbox" id="chk-ipal" onchange="toggleEngineering('ipal', this.checked)" class="sr-only peer">
+                        <div class="w-10 h-5 bg-slate-800 border border-emerald-700/60 rounded-full peer peer-checked:bg-emerald-500 peer-checked:border-amber-300 transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full shadow transition-transform peer-checked:translate-x-5 peer-checked:bg-slate-950"></div>
+                    </div>
+                </label>
+
+                <!-- Toggle 2: Geomembrane -->
+                <label class="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-black/40 border border-emerald-800/60 cursor-pointer hover:border-amber-400/70 transition">
+                    <div class="flex-1">
+                        <div class="font-semibold text-white">Lapisan Geomembrane HDPE TPA</div>
+                        <div class="text-[10px] text-slate-300 mt-0.5">Reduksi perkolasi air lindi ke akuifer sebesar 95%</div>
+                    </div>
+                    <div class="relative inline-flex items-center shrink-0">
+                        <input type="checkbox" id="chk-geo" onchange="toggleEngineering('geo', this.checked)" class="sr-only peer">
+                        <div class="w-10 h-5 bg-slate-800 border border-emerald-700/60 rounded-full peer peer-checked:bg-amber-500 peer-checked:border-amber-200 transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full shadow transition-transform peer-checked:translate-x-5 peer-checked:bg-slate-950"></div>
+                    </div>
+                </label>
+
+                <!-- Toggle 3: Fitoremediasi -->
+                <label class="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-black/40 border border-emerald-800/60 cursor-pointer hover:border-amber-400/70 transition">
+                    <div class="flex-1">
+                        <div class="font-semibold text-white">Fitoremediasi Riparian (Vetiver & Eceng Gondok)</div>
+                        <div class="text-[10px] text-slate-300 mt-0.5">Reduksi nutrien & BOD<sub>5</sub> tambahan 25% serta reaerasi</div>
+                    </div>
+                    <div class="relative inline-flex items-center shrink-0">
+                        <input type="checkbox" id="chk-phyto" onchange="toggleEngineering('phyto', this.checked)" class="sr-only peer">
+                        <div class="w-10 h-5 bg-slate-800 border border-emerald-700/60 rounded-full peer peer-checked:bg-emerald-500 peer-checked:border-amber-300 transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full shadow transition-transform peer-checked:translate-x-5 peer-checked:bg-slate-950"></div>
+                    </div>
+                </label>
+
+                <!-- Toggle 4: Wet Scrubber -->
+                <label class="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-black/40 border border-emerald-800/60 cursor-pointer hover:border-amber-400/70 transition">
+                    <div class="flex-1">
+                        <div class="font-semibold text-white">Wet Scrubber Cerobong Industri</div>
+                        <div class="text-[10px] text-slate-300 mt-0.5">Reduksi emisi partikulat udara PM<sub>2.5</sub> sebesar 85%</div>
+                    </div>
+                    <div class="relative inline-flex items-center shrink-0">
+                        <input type="checkbox" id="chk-scrubber" onchange="toggleEngineering('scrubber', this.checked)" class="sr-only peer">
+                        <div class="w-10 h-5 bg-slate-800 border border-emerald-700/60 rounded-full peer peer-checked:bg-amber-500 peer-checked:border-amber-200 transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full shadow transition-transform peer-checked:translate-x-5 peer-checked:bg-slate-950"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- TAB 2: TELEMETRI STASIUN (A, B, C, D) & BAKU MUTU -->
+        <div id="lview-stations" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h3 class="font-bold text-white">Telemetri Stasiun Pemantauan (A–D)</h3>
+                    <p class="text-[10px] text-slate-300">Evaluasi Baku Mutu PP No. 22 Tahun 2021 (Kelas II & Udara Ambien)</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="exportSimulationCSV()" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/50 text-[10px] font-bold transition">
+                        Unduh CSV
+                    </button>
+                    <button onclick="prepareAndPrintReport()" class="px-2.5 py-1.5 rounded-lg bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-400/50 text-[10px] font-bold transition">
+                        Cetak Laporan A4
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pemilih Stasiun Aktif -->
+            <div class="grid grid-cols-4 gap-1.5">
+                <button id="st-btn-A" onclick="selectStationDetail('A')" class="py-1.5 rounded-xl font-bold text-[11px] bg-emerald-500/25 text-amber-300 border border-amber-400/50">Stasiun A</button>
+                <button id="st-btn-B" onclick="selectStationDetail('B')" class="py-1.5 rounded-xl font-bold text-[11px] bg-black/40 text-slate-300 border border-emerald-800">Stasiun B</button>
+                <button id="st-btn-C" onclick="selectStationDetail('C')" class="py-1.5 rounded-xl font-bold text-[11px] bg-black/40 text-slate-300 border border-emerald-800">Stasiun C</button>
+                <button id="st-btn-D" onclick="selectStationDetail('D')" class="py-1.5 rounded-xl font-bold text-[11px] bg-black/40 text-slate-300 border border-emerald-800">Stasiun D</button>
+            </div>
+
+            <!-- Tabel Detail Stasiun Terpilih + Progress Bar Ambang Batas PP 22/2021 -->
+            <div id="station-detail-table" class="glass-card p-3 rounded-xl space-y-2.5">
+                <!-- Diisi secara dinamis -->
+            </div>
+
+            <!-- Ringkasan Seluruh Stasiun A–D -->
+            <div id="all-stations-summary" class="space-y-2">
+                <!-- Diisi secara dinamis -->
+            </div>
+        </div>
+
+        <!-- TAB 3: GRAFIK ANALITIK (KURVA STREETER-PHELPS, BAR CHART & HUKUM DARCY) -->
+        <div id="lview-charts" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3.5 text-xs">
+            <!-- Kartu Perhitungan Neraca Massa Pencampuran Sungai -->
+            <div class="glass-card p-3 rounded-xl space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-emerald-300 uppercase text-[10px] tracking-wider">Neraca Massa Pencampuran Sungai</span>
+                    <span class="font-mono-code text-[10px] text-amber-300">C_mix = (Qs·Cs + Qw·Cw)/(Qs + Qw)</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                    <div class="bg-black/45 p-2 rounded-lg border border-emerald-800/60">
+                        <div class="text-[10px] text-slate-300">BOD₅ Campuran</div>
+                        <div id="calc-bod-mix" class="font-mono-code font-bold text-sm text-rose-300">14.7 mg/L</div>
+                    </div>
+                    <div class="bg-black/45 p-2 rounded-lg border border-emerald-800/60">
+                        <div class="text-[10px] text-slate-300">DO Jenuh (<i>C<sub>s</sub></i>)</div>
+                        <div id="calc-do-sat" class="font-mono-code font-bold text-sm text-sky-300">7.82 mg/L</div>
+                    </div>
+                    <div class="bg-black/45 p-2 rounded-lg border border-emerald-800/60">
+                        <div class="text-[10px] text-slate-300">DO Kritis (<i>DO<sub>c</sub></i>)</div>
+                        <div id="calc-do-crit" class="font-mono-code font-bold text-sm text-amber-300">3.12 mg/L</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanvas Grafik Kurva Streeter-Phelps (0 - 30 km) dengan Hover Inspection -->
+            <div class="glass-card p-3 rounded-xl space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <h3 class="font-bold text-white text-xs">Kurva Streeter–Phelps (DO Sag Curve)</h3>
+                        <p class="text-[10px] text-slate-300">Arahkan kursor / sentuh grafik untuk inspeksi titik (0–30 km)</p>
+                    </div>
+                    <span id="sag-status-pill" class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">Melampaui Baku Mutu</span>
+                </div>
+                <div class="relative w-full h-44 bg-black/65 rounded-xl border border-emerald-800/70 p-1">
+                    <canvas id="sag-chart-canvas" class="w-full h-full cursor-crosshair"></canvas>
+                    <div id="sag-hover-tooltip" class="hidden absolute top-2 right-2 pointer-events-none bg-slate-950/95 border border-amber-400/60 rounded-lg px-2 py-1 text-[10px] font-mono-code text-slate-100 shadow-lg"></div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-300 gap-1">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-cyan-400 inline-block"></span> Profil DO</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-emerald-400 inline-block"></span> Baku Mutu (4,0 mg/L)</span>
+                    <span id="calc-xc-label" class="font-mono-code text-amber-300">Titik Kritis Xc: 7 km</span>
+                </div>
+                <div id="sp-equation-live" class="p-2 rounded-lg bg-black/50 font-mono-code text-[10px] text-emerald-200 border border-emerald-900">
+                    kd = 0.347/hari | kr = 0.733/hari | Cs = 7.82 mg/L | DOc = 3.12 mg/L
+                </div>
+            </div>
+
+            <!-- Grafik Perbandingan Multi-Stasiun (A–D) -->
+            <div class="glass-card p-3 rounded-xl space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <h3 class="font-bold text-white text-xs">Perbandingan Antar Stasiun (A–D)</h3>
+                        <p class="text-[10px] text-slate-300">Distribusi spasial parameter kualitas lingkungan</p>
+                    </div>
+                    <select id="bar-metric-mode" onchange="drawStationBarChart()" class="bg-black/65 border border-emerald-700/80 rounded-lg px-2 py-1 text-[10px] text-amber-300 font-semibold outline-none">
+                        <option value="water">DO & BOD₅ (mg/L)</option>
+                        <option value="ground_air">TDS (×100) & PM₂.₅</option>
+                    </select>
+                </div>
+                <div class="relative w-full h-36 bg-black/65 rounded-xl border border-emerald-800/70 p-1">
+                    <canvas id="station-bar-canvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Kartu Hukum Darcy Aliran Air Tanah & Jalur Migrasi 0-250 m -->
+            <div class="glass-card p-3 rounded-xl space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-300 uppercase text-[10px] tracking-wider">Hukum Darcy Aliran Air Tanah</span>
+                    <span class="font-mono-code text-[10px] text-emerald-300">v_s = (K · i) / n</span>
+                </div>
+
+                <!-- Visual Darcy Plume Migration Track Bar (0 m TPA -> 250 m Sumur Warga) -->
+                <div class="bg-black/50 p-2.5 rounded-xl border border-emerald-900/80 space-y-1.5">
+                    <div class="flex justify-between text-[10px] font-semibold">
+                        <span class="text-lime-300">0 m • TPA (Stasiun C)</span>
+                        <span id="darcy-track-status" class="text-amber-300 font-mono-code">Migrasi Lindi Aktif</span>
+                        <span class="text-cyan-300">250 m • Sumur D</span>
+                    </div>
+                    <div class="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-emerald-800/70">
+                        <div id="darcy-plume-bar" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-lime-500 via-amber-500 to-rose-500" style="width: 65%;"></div>
+                        <div id="darcy-geo-shield" class="hidden absolute left-1.5 top-0 bottom-0 w-1.5 bg-amber-300 shadow-[0_0_8px_#fde047]" title="Penghalang Geomembrane HDPE"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-black/45 p-2.5 rounded-lg border border-emerald-800/60">
+                        <div class="text-[10px] text-slate-300">Kecepatan Rembesan (<i>v<sub>s</sub></i>)</div>
+                        <div id="calc-darcy-v" class="font-mono-code font-bold text-xs text-emerald-300 mt-0.5">0,057 m/hari</div>
+                    </div>
+                    <div class="bg-black/45 p-2.5 rounded-lg border border-emerald-800/60">
+                        <div class="text-[10px] text-slate-300">Waktu Tempuh (250 m)</div>
+                        <div id="calc-darcy-t" class="font-mono-code font-bold text-xs text-amber-300 mt-0.5">12,0 Tahun</div>
+                    </div>
+                </div>
+                <div id="darcy-risk-banner" class="p-2 rounded-lg bg-amber-500/15 border border-amber-500/35 text-[11px] text-amber-200">
+                    Air lindi bermigrasi melalui akuifer lanau berpasir menuju hilir sumur warga.
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ===================================================================== -->
+    <!-- KARTU LEGENDA STRATIGRAFI GEOLOGI (MUNCUL SAAT X-RAY TANAH AKTIF)     -->
+    <!-- ===================================================================== -->
+    <div id="xray-legend-card" class="hidden fixed bottom-16 left-2.5 sm:left-[425px] z-20 glass-panel rounded-2xl p-3 max-w-[270px] text-[11px] space-y-2 border border-amber-400/50 pointer-events-auto">
+        <div class="flex items-center justify-between border-b border-emerald-800/70 pb-1">
+            <span class="font-bold text-amber-300 uppercase text-[10px] tracking-wider">Stratigrafi Bawah Tanah</span>
+            <button onclick="toggleXRay()" class="text-slate-400 hover:text-white text-xs">✕</button>
+        </div>
+        <div class="space-y-1.5 text-[10px]">
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded bg-emerald-600 shrink-0 border border-white/20"></span>
+                <span class="text-slate-200"><strong>Lapisan Permukaan</strong> (0–2 m): Topsoil & Riparian</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="legend-vadose-swatch" class="w-3 h-3 rounded bg-amber-800 shrink-0 border border-white/20"></span>
+                <span id="legend-vadose-text" class="text-slate-200"><strong>Zona Vadose</strong> (2–10 m): Lanau Berpasir</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded bg-sky-500 shrink-0 border border-white/20"></span>
+                <span class="text-slate-200"><strong>Akuifer Air Tanah</strong> (10–22 m): Zona Jenuh Darcy</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded bg-slate-800 shrink-0 border border-white/20"></span>
+                <span class="text-slate-200"><strong>Batuan Dasar</strong> (&gt;22 m): Bedrock Kedap Air</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TOOLBAR BAWAH: KONTROL KAMERA 3D, TUR 360°, PRESET & X-RAY TANAH      -->
+    <!-- ===================================================================== -->
+    <div id="bottom-toolbar" class="fixed bottom-2.5 left-2.5 right-2.5 sm:right-auto z-20 flex flex-wrap items-center gap-2 pointer-events-none">
+        <div class="glass-panel rounded-2xl p-1.5 flex flex-wrap items-center gap-1.5 pointer-events-auto w-full sm:w-auto justify-between sm:justify-start">
+            <!-- Mode X-Ray Bawah Tanah -->
+            <button id="btn-xray" onclick="toggleXRay()" class="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition glass-card border border-emerald-700/70 text-slate-100 hover:border-amber-400">
+                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <span id="xray-label">X-Ray Tanah: OFF</span>
+            </button>
+
+            <!-- Tur 360° Auto-Orbit -->
+            <button id="btn-autotour" onclick="toggleAutoOrbit()" class="px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition bg-black/50 hover:bg-emerald-900/60 text-emerald-200 border border-emerald-700/70" title="Putar Diorama 360° Otomatis">
+                <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span id="autotour-label" class="hidden md:inline">Tur 360°</span>
+            </button>
+
+            <!-- Preset Sudut Kamera 3D -->
+            <div class="flex items-center gap-1">
+                <button onclick="setCameraAngle('isometric')" class="px-2 sm:px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-black/45 hover:bg-emerald-800/60 text-slate-200 border border-emerald-800/70 transition">Isometrik</button>
+                <button onclick="setCameraAngle('subsurface')" class="px-2 sm:px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-black/45 hover:bg-emerald-800/60 text-slate-200 border border-emerald-800/70 transition">Bawah Tanah</button>
+                <button onclick="setCameraAngle('river')" class="px-2 sm:px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-black/45 hover:bg-emerald-800/60 text-slate-200 border border-emerald-800/70 transition">Fokus Sungai</button>
+                <button onclick="setCameraAngle('tpa')" class="px-2 sm:px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-black/45 hover:bg-emerald-800/60 text-slate-200 border border-emerald-800/70 transition">Fokus TPA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PANEL KANAN: PROF. ENVIRO AI & 3 MISI PRAKTIKUM TERPANDU              -->
+    <!-- ===================================================================== -->
+    <aside id="ai-tutor-panel" class="panel-transition fixed top-[110px] right-2.5 bottom-2.5 z-30 w-[calc(100vw-20px)] sm:w-[365px] xl:w-[385px] glass-panel rounded-2xl flex flex-col overflow-hidden translate-x-0">
+        <!-- Header Asisten AI -->
+        <div class="p-3 border-b border-emerald-800/70 bg-black/45 flex items-center justify-between shrink-0 relative">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-400 flex items-center justify-center text-slate-950 font-extrabold text-xs shadow ring-2 ring-amber-300/40">
+                    PE
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <h3 class="text-xs font-bold text-white">Prof. Enviro AI</h3>
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    </div>
+                    <p class="text-[10px] text-amber-300">Asisten Virtual Teknik Lingkungan UNIMAL</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1">
+                <button onclick="toggleApiPopover()" class="p-1.5 rounded-lg hover:bg-emerald-900/60 text-slate-300 hover:text-amber-300 transition" title="Konfigurasi Gemini API Key (Opsional)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </button>
+                <button onclick="toggleAIPanel()" class="p-1.5 rounded-lg hover:bg-emerald-900/60 text-slate-300 hover:text-white transition" title="Tutup Panel AI">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Popover Konfigurasi Gemini API Key Opsional -->
+            <div id="api-key-popover" class="hidden absolute top-14 right-3 left-3 z-40 glass-panel p-3 rounded-xl border border-amber-400/50 space-y-2 text-xs shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-300 text-[11px]">Gemini API Key (Opsional)</span>
+                    <button onclick="toggleApiPopover()" class="text-slate-400 hover:text-white">✕</button>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed">
+                    Secara bawaan, Prof. Enviro menggunakan mesin analisis Sokratik lokal yang bekerja langsung tanpa internet. Masukkan Gemini API Key jika ingin mengaktifkan model generatif daring.
+                </p>
+                <div class="flex gap-1.5">
+                    <input id="gemini-api-input" type="password" placeholder="AIzaSy..." class="flex-1 bg-black/60 border border-emerald-700/80 rounded-lg px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-amber-400">
+                    <button onclick="saveCustomApiKey()" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold text-[11px] hover:bg-emerald-400 transition">Simpan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Konsultasi AI vs Misi Praktikum -->
+        <div class="grid grid-cols-2 p-1.5 bg-black/35 border-b border-emerald-900/60 text-[11px] font-bold gap-1 shrink-0">
+            <button id="ai-tab-chat" onclick="switchAIMode('chat')" class="py-1.5 rounded-xl bg-emerald-500/20 text-amber-300 border border-amber-400/40 transition">
+                Konsultasi Diagnostik
+            </button>
+            <button id="ai-tab-mission" onclick="switchAIMode('mission')" class="py-1.5 rounded-xl text-slate-300 hover:text-white transition">
+                Misi Praktikum (<span id="mission-counter-badge">0/3</span>)
+            </button>
+        </div>
+
+        <!-- TAMPILAN CHAT SOKRATIK KONTEKSTUAL -->
+        <div id="ai-view-chat" class="flex-1 flex flex-col overflow-hidden">
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs leading-relaxed">
+                <div class="flex gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-emerald-500/25 border border-amber-400/50 flex items-center justify-center text-amber-300 font-bold shrink-0 text-[10px]">AI</div>
+                    <div class="glass-card rounded-2xl rounded-tl-none p-3 text-slate-100 space-y-1.5">
+                        <p>Assalamu’alaikum dan salam lestari! Saya <strong>Prof. Enviro</strong>, asisten virtual Program Studi Teknik Lingkungan Universitas Malikussaleh.</p>
+                        <p>Saya memantau seluruh parameter simulasi Anda secara langsung (air sungai, akuifer air tanah, maupun emisi udara cerobong). Silakan klik salah satu topik analisis di bawah atau ketik pertanyaan Anda!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tombol Pertanyaan Cepat (Quick Prompts) -->
+            <div class="px-3 py-2 border-t border-emerald-900/70 flex gap-1.5 overflow-x-auto bg-black/35 shrink-0">
+                <button onclick="sendQuickPrompt('Analisis hasil kurva Streeter-Phelps dan nilai oksigen terlarut kritis (DOc) pada simulasi saya saat ini.')" class="whitespace-nowrap text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 transition">
+                    Analisis Kurva DO
+                </button>
+                <button onclick="sendQuickPrompt('Evaluasi risiko migrasi air lindi TPA ke Sumur Warga menggunakan Hukum Darcy pada jenis tanah pilihan saya.')" class="whitespace-nowrap text-[11px] px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-500/40 transition">
+                    Evaluasi Hukum Darcy
+                </button>
+                <button onclick="sendQuickPrompt('Bagaimana dampak emisi PM2.5 cerobong industri dan cara menurunkannya sesuai baku mutu?')" class="whitespace-nowrap text-[11px] px-2.5 py-1 rounded-full bg-black/50 hover:bg-emerald-900/50 text-slate-200 border border-emerald-800 transition">
+                    Audit Emisi Udara
+                </button>
+            </div>
+
+            <!-- Input Pertanyaan -->
+            <form onsubmit="handleChatSubmit(event)" class="p-2.5 border-t border-emerald-800/70 bg-black/50 flex gap-2 shrink-0">
+                <input id="chat-input" type="text" placeholder="Ketik pertanyaan analisis lingkungan Anda..." class="flex-1 bg-black/60 border border-emerald-700/80 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none">
+                <button type="submit" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-amber-500 hover:from-emerald-400 hover:to-amber-400 text-slate-950 font-bold text-xs transition">
+                    Kirim
+                </button>
+            </form>
+        </div>
+
+        <!-- TAMPILAN 3 MISI PRAKTIKUM TERPANDU DENGAN PROGRESS BAR & PETUNJUK -->
+        <div id="ai-view-mission" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+            <!-- Lencana Kelulusan Praktikum -->
+            <div id="graduation-banner" class="glass-card p-3.5 rounded-xl border border-amber-400/50 bg-gradient-to-br from-emerald-950/90 to-amber-950/40 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-300 uppercase text-[10px] tracking-wider">Status Kelulusan Praktikum</span>
+                    <span id="mission-total-score" class="font-mono-code font-bold text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/40">Skor: 0 / 100</span>
+                </div>
+                <div class="w-full h-2 bg-black/50 rounded-full overflow-hidden border border-emerald-800/60">
+                    <div id="mission-overall-bar" class="h-full bg-gradient-to-r from-emerald-400 to-amber-400 transition-all duration-500" style="width: 0%;"></div>
+                </div>
+                <p id="graduation-desc" class="text-[11px] text-slate-200">
+                    Selesaikan 3 misi rekayasa lingkungan di bawah ini dengan mengatur parameter simulasi dan teknologi mitigasi hingga terverifikasi otomatis.
+                </p>
+            </div>
+
+            <!-- Daftar 3 Misi Praktikum -->
+            <div id="missions-container" class="space-y-2.5">
+                <!-- Diisi secara dinamis -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- NOTIFIKASI TOAST -->
+    <div id="toast-box" class="fixed top-[112px] left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300">
+        <div id="toast-content" class="glass-panel px-4 py-2 rounded-xl text-xs font-semibold text-amber-200 border border-amber-400/50 shadow-xl"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYAR PEMBUKA EDUKATIF, IDENTITAS PRAKTIKAN & PANDUAN AWAL            -->
+    <!-- ===================================================================== -->
+    <div id="welcome-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div class="glass-panel max-w-4xl w-full rounded-3xl p-5 sm:p-7 space-y-4 border border-amber-400/45 my-auto max-h-[94vh] overflow-y-auto">
+            <!-- Header Institusi dengan Dua Logo Resmi -->
+            <div class="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-4 border-b border-emerald-800/70 pb-4">
+                <div class="flex flex-col sm:flex-row items-center gap-3.5">
+                    <div class="flex items-center gap-3 shrink-0">
+                        <!-- Logo Universitas Malikussaleh -->
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg shrink-0 flex items-center justify-center overflow-hidden ring-2 ring-amber-400/60">
+                            <svg id="modal-logo-unimal-svg" viewBox="0 0 220 260" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M110 12 C94 34, 76 44, 76 62 C52 54, 34 72, 42 98 C46 110, 56 118, 66 122 C54 102, 58 78, 78 74 C86 84, 98 86, 110 74 C122 86, 134 84, 142 74 C162 78, 166 102, 154 122 C164 118, 174 110, 178 98 C186 72, 168 54, 144 62 C144 44, 126 34, 110 12 Z" fill="#eab308"/>
+                                <line x1="110" y1="32" x2="110" y2="66" stroke="#ca8a04" stroke-width="3" stroke-dasharray="4 2"/>
+                                <path d="M96 68 L124 68 L118 76 C128 82, 132 94, 128 106 C125 114, 118 118, 116 124 L124 136 L96 136 L104 124 C102 118, 95 114, 92 106 C88 94, 92 82, 102 76 Z" fill="#eab308"/>
+                                <text x="110" y="103" text-anchor="middle" fill="#1e293b" font-size="16" font-weight="800" font-family="serif">١٩٦٩</text>
+                                <path d="M74 84 A56 56 0 1 0 146 84 A43 43 0 1 1 74 84 Z" fill="#059669"/>
+                                <text x="110" y="218" text-anchor="middle" fill="#0f172a" font-size="22" font-weight="700" font-family="Georgia, serif" letter-spacing="1.5">universitas</text>
+                                <text x="110" y="244" text-anchor="middle" fill="#0f172a" font-size="21" font-weight="900" font-family="Arial, sans-serif" letter-spacing="0.5">MALIKUSSALEH</text>
+                            </svg>
+                        </div>
+
+                        <!-- Logo Teknik Lingkungan UNIMAL -->
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg shrink-0 flex items-center justify-center overflow-hidden ring-2 ring-emerald-400/60">
+                            <svg id="modal-logo-tl-svg" viewBox="0 0 220 260" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M110 10 C94 32, 76 42, 76 60 C52 52, 34 70, 42 96 C46 108, 56 116, 66 120 C54 100, 58 76, 78 72 C86 82, 98 84, 110 72 C122 84, 134 82, 142 72 C162 76, 166 100, 154 120 C164 116, 174 108, 178 96 C186 70, 168 52, 144 60 C144 42, 126 32, 110 10 Z" fill="#eab308"/>
+                                <line x1="110" y1="30" x2="110" y2="64" stroke="#b45309" stroke-width="3" stroke-dasharray="4 2"/>
+                                <path d="M96 66 L124 66 L118 74 C128 80, 132 92, 128 104 C125 112, 118 116, 116 122 L124 134 L96 134 L104 122 C102 116, 95 112, 92 104 C88 92, 92 80, 102 74 Z" fill="#eab308"/>
+                                <text x="110" y="101" text-anchor="middle" fill="#1e293b" font-size="15" font-weight="800" font-family="serif">١٩٦٩</text>
+                                <path d="M74 82 A56 56 0 1 0 146 82 A44 44 0 1 1 74 82 Z" fill="#047857"/>
+                                <g fill="#065f46">
+                                    <rect x="74" y="114" width="3" height="28"/>
+                                    <path d="M75.5 114 L63 106 L74 116 L75.5 100 L77 116 L88 108 Z"/>
+                                    <rect x="86" y="120" width="9" height="22"/>
+                                    <rect x="97" y="115" width="10" height="27"/>
+                                    <rect x="109" y="123" width="8" height="19"/>
+                                </g>
+                                <path d="M68 148 Q90 142 110 150 T146 148 Q128 162 108 156 T68 148 Z" fill="#0284c7"/>
+                                <path d="M74 157 Q94 152 112 159 T142 157 Q124 168 106 163 T74 157 Z" fill="#38bdf8"/>
+                                <path d="M138 78 C158 92, 162 124, 140 146 C128 130, 128 102, 138 78 Z" fill="#10b981"/>
+                                <path d="M139 84 Q144 114 140 143" stroke="#ecfdf5" stroke-width="1.8" fill="none"/>
+                                <text x="110" y="218" text-anchor="middle" fill="#0f172a" font-size="16.5" font-weight="900" font-family="Arial, sans-serif">TEKNIK LINGKUNGAN</text>
+                                <text x="110" y="238" text-anchor="middle" fill="#065f46" font-size="12" font-weight="800" font-family="Arial, sans-serif">UNIVERSITAS MALIKUSSALEH</text>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="text-center sm:text-left">
+                        <span class="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                            Media Pembelajaran Interaktif 3D WebAR & Generative AI
+                        </span>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-white mt-1 leading-snug">
+                            EnviroLens AR — Laboratorium Virtual Pengantar Teknik Lingkungan
+                        </h2>
+                        <p class="text-xs text-emerald-300 font-semibold">Program Studi Teknik Lingkungan, Fakultas Teknik, Universitas Malikussaleh</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deskripsi Umum & Tujuan Pembelajaran (CPMK) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs leading-relaxed">
+                <div class="glass-card p-4 rounded-2xl space-y-2">
+                    <h3 class="font-bold text-amber-300 uppercase text-[11px] tracking-wider">Deskripsi Aplikasi</h3>
+                    <p class="text-slate-200">
+                        <strong>EnviroLens AR</strong> merupakan media pembelajaran interaktif berbasis visualisasi spasial <strong>3D/WebAR</strong> dan asisten kecerdasan buatan (<strong>Generative AI</strong>) yang dirancang untuk membedah fenomena abstrak pencemaran air permukaan (sungai), dispersi emisi udara industri, serta migrasi air lindi (<em>leachate</em>) pada akuifer air tanah secara <em>real-time</em>.
+                    </p>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl space-y-2">
+                    <h3 class="font-bold text-emerald-300 uppercase text-[11px] tracking-wider">Capaian Pembelajaran Mata Kuliah (CPMK)</h3>
+                    <ol class="list-decimal pl-4 space-y-1 text-slate-200">
+                        <li>Menganalisis dinamika penyebaran polutan pada media air, tanah, dan udara secara spasial.</li>
+                        <li>Menghitung neraca massa pencampuran limbah, kurva penurunan oksigen terlarut (<strong>Streeter–Phelps</strong>), dan kecepatan rembesan air tanah (<strong>Hukum Darcy</strong>).</li>
+                        <li>Merancang intervensi rekayasa lingkungan sesuai <strong>Baku Mutu PP No. 22 Tahun 2021</strong>.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Peta Stasiun Pemantauan A-D & Panduan Cepat 4 Langkah -->
+            <div class="glass-card p-4 rounded-2xl space-y-2.5">
+                <h3 class="font-bold text-amber-300 uppercase text-[11px] tracking-wider">Panduan Cepat 4 Langkah Praktikum</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                    <div class="bg-black/45 p-3 rounded-xl border border-emerald-800/70">
+                        <div class="font-extrabold text-amber-400 mb-1">1. Eksplorasi 3D & X-Ray</div>
+                        <p class="text-slate-200 text-[11px]">Amati Stasiun A–D pada diorama 3D dan aktifkan <strong>X-Ray Tanah</strong> untuk membedah lapisan akuifer.</p>
+                    </div>
+                    <div class="bg-black/45 p-3 rounded-xl border border-emerald-800/70">
+                        <div class="font-extrabold text-amber-400 mb-1">2. Simulasi & Mitigasi</div>
+                        <p class="text-slate-200 text-[11px]">Atur beban polutan serta uji teknologi <strong>IPAL, Geomembrane HDPE, Fitoremediasi, & Wet Scrubber</strong>.</p>
+                    </div>
+                    <div class="bg-black/45 p-3 rounded-xl border border-emerald-800/70">
+                        <div class="font-extrabold text-amber-400 mb-1">3. Audit Grafik & Laporan</div>
+                        <p class="text-slate-200 text-[11px]">Inspeksi kurva <strong>Streeter–Phelps</strong>, laju <strong>Hukum Darcy</strong>, serta cetak laporan resmi A4 UNIMAL.</p>
+                    </div>
+                    <div class="bg-black/45 p-3 rounded-xl border border-emerald-800/70">
+                        <div class="font-extrabold text-amber-400 mb-1">4. Konsultasi & Misi AI</div>
+                        <p class="text-slate-200 text-[11px]">Diskusikan hasil simulasi dan tuntaskan <strong>3 Misi Praktikum</strong> bersama <strong>Prof. Enviro AI</strong>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tombol Utama Mulai Eksplorasi -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                <span class="text-[11px] text-slate-300">Tips: Klik pin <strong>Stasiun A–D</strong> langsung pada diorama 3D untuk memfokuskan kamera dan membuka data telemetrinya.</span>
+                <button onclick="toggleWelcomeModal(false)" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500 hover:from-emerald-400 hover:to-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-500/25 transition shrink-0">
+                    Mulai Eksplorasi Laboratorium Virtual
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LEMBAR CETAK LAPORAN RESMI A4 (@media print ONLY)                     -->
+    <!-- ===================================================================== -->
+    <div id="print-report-sheet" class="p-4 text-xs text-slate-900">
+        <!-- Kop Surat Resmi Universitas Malikussaleh -->
+        <div class="flex items-center justify-between border-b-4 border-double border-slate-900 pb-3 mb-4">
+            <img id="print-logo-unimal" class="w-16 h-16 object-contain" alt="Logo UNIMAL">
+            <div class="text-center flex-1 px-3">
+                <div class="text-xs font-bold uppercase tracking-wide">Kementerian Pendidikan Tinggi, Sains, dan Teknologi</div>
+                <div class="text-base font-extrabold uppercase tracking-wider">Universitas Malikussaleh</div>
+                <div class="text-sm font-bold uppercase text-emerald-900">Fakultas Teknik — Program Studi Teknik Lingkungan</div>
+                <div class="text-[10px] text-slate-600 mt-0.5">Kampus Bukit Indah, Blang Pulo, Kec. Muara Satu, Kota Lhokseumawe, Aceh 24355</div>
+            </div>
+            <img id="print-logo-tl" class="w-16 h-16 object-contain" alt="Logo Teknik Lingkungan UNIMAL">
+        </div>
+
+        <div class="text-center mb-4">
+            <h1 class="text-sm font-extrabold uppercase underline">Laporan Hasil Praktikum Virtual Pengantar Teknik Lingkungan</h1>
+            <p class="text-[11px] text-slate-700">Simulasi Pemodelan Kualitas Air Permukaan, Aliran Air Tanah, dan Emisi Udara Ambien (EnviroLens AR v3.0)</p>
+        </div>
+
+        <!-- Identitas Mahasiswa -->
+        <div id="print-student-box" class="border border-slate-400 rounded p-2.5 mb-4 grid grid-cols-2 gap-y-1 text-[11px]"></div>
+
+        <!-- Ringkasan Parameter & Pemodelan Matematis -->
+        <div id="print-model-box" class="mb-4"></div>
+
+        <!-- Tabel Evaluasi Stasiun A-D -->
+        <div id="print-stations-box" class="mb-6"></div>
+
+        <!-- Kolom Pengesahan -->
+        <div class="grid grid-cols-2 gap-8 mt-8 text-[11px]">
+            <div class="text-center">
+                <p>Mengetahui,</p>
+                <p class="font-semibold">Dosen Pengampu / Asisten Laboratorium</p>
+                <div class="h-14"></div>
+                <p id="print-sign-dosen" class="font-bold underline">( ...................................................... )</p>
+            </div>
+            <div class="text-center">
+                <p id="print-date-line">Lhokseumawe, ..............................</p>
+                <p class="font-semibold">Praktikan / Mahasiswa</p>
+                <div class="h-14"></div>
+                <p id="print-sign-student" class="font-bold underline">( ...................................................... )</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // 1. STATUS SIMULASI & KONSTANTA TEKNIK LINGKUNGAN
+        // =====================================================================
+        const SOIL_PROPS = {
+            clay: { name: 'Lempung', K: 1e-7, n: 0.45, color: 0x57534e, hex: '#57534e' },
+            sandy_silt: { name: 'Lanau Berpasir', K: 1e-5, n: 0.38, color: 0x78350f, hex: '#78350f' },
+            coarse_sand: { name: 'Pasir Kasar', K: 1e-3, n: 0.30, color: 0xb45309, hex: '#b45309' }
+        };
+
+        const STATE = {
+            qw: 8640,          // Debit limbah industri (m3/hari)
+            bodw: 460,         // Konsentrasi BOD5 limbah industri (mg/L)
+            qs: 3.5,           // Debit sungai hulu (m3/detik)
+            temp: 28.0,        // Suhu air sungai (°C)
+            rain: 25,          // Curah hujan harian (mm/hari)
+            pm25: 210,         // Beban emisi partikulat PM2.5 cerobong (µg/Nm³)
+            soil: 'sandy_silt',
+            ipal: false,       // Reduksi BOD5 & COD 88%
+            geo: false,        // Reduksi perkolasi lindi 95%
+            phyto: false,      // Reduksi BOD5 tambahan 25% + reaerasi
+            scrubber: false,   // Reduksi PM2.5 udara 85%
+            isXRay: false,
+            isARMode: false,
+            autoOrbit: false,
+            selectedStation: 'B',
+            completedMissions: { m1: false, m2: false, m3: false },
+            computed: {}
+        };
+
+        const STATION_META = {
+            A: {
+                code: 'A',
+                shortName: 'Stasiun A: Hulu Alami',
+                fullName: 'Stasiun A — Hulu Pegunungan & Hutan Riparian',
+                desc: 'Zona referensi alami sebelum menerima beban pencemar antropogenik.',
+                pos: new THREE.Vector3(-8.5, 2.2, -3.2),
+                camTarget: new THREE.Vector3(-7.8, 1.4, -2.8),
+                camSpherical: { radius: 12.5, phi: Math.PI / 3.1, theta: -0.35 }
+            },
+            B: {
+                code: 'B',
+                shortName: 'Stasiun B: Outlet Industri',
+                fullName: 'Stasiun B — Zona Pencampuran Limbah Cair & Emisi Industri',
+                desc: 'Titik pertemuan pipa outlet limbah industri dengan aliran utama sungai serta sebaran emisi cerobong.',
+                pos: new THREE.Vector3(-2.0, 1.6, -1.5),
+                camTarget: new THREE.Vector3(-1.8, 1.3, -2.4),
+                camSpherical: { radius: 12.8, phi: Math.PI / 3.1, theta: -0.1 }
+            },
+            C: {
+                code: 'C',
+                shortName: 'Stasiun C: Zona Lindi TPA',
+                fullName: 'Stasiun C — Penampang Akuifer Bawah TPA & Hilir Tengah',
+                desc: 'Titik pemantauan perkolasi air lindi (leachate) pada zona jenuh akuifer di bawah tumpukan sampah.',
+                pos: new THREE.Vector3(2.4, 1.4, 1.6),
+                camTarget: new THREE.Vector3(2.2, 0.4, 2.2),
+                camSpherical: { radius: 12.5, phi: Math.PI / 2.7, theta: 0.35 }
+            },
+            D: {
+                code: 'D',
+                shortName: 'Stasiun D: Sumur & Hilir',
+                fullName: 'Stasiun D — Sumur Gali Warga & Badan Air Hilir (250 m dari TPA)',
+                desc: 'Titik pemantauan kualitas air tanah sumur warga dan pemulihan oksigen terlarut di hilir.',
+                pos: new THREE.Vector3(7.8, 1.6, 0.8),
+                camTarget: new THREE.Vector3(7.4, 0.8, 0.8),
+                camSpherical: { radius: 12.8, phi: Math.PI / 2.9, theta: 0.55 }
+            }
+        };
+
+        // =====================================================================
+        // 2. PEMODELAN MATEMATIS (NERACA MASSA, STREETER-PHELPS, HUKUM DARCY)
+        // =====================================================================
+        function runEnvironmentalCalculations() {
+            const Qw_m3s = STATE.qw / 86400.0;
+            const Qs_m3s = STATE.qs;
+            const Q_total = Qs_m3s + Qw_m3s;
+
+            // Parameter Hulu Alami (Stasiun A)
+            const BOD_A = 2.0;
+            const COD_A = 8.5;
+            const TDS_A = 110;
+            const pH_A = 7.2;
+            const PM25_A = 18;
+
+            // Oksigen Terlarut Jenuh (Cs) berdasarkan suhu air T
+            const T = STATE.temp;
+            const Cs = 14.652 - 0.41022 * T + 0.007991 * T * T - 0.00007777 * T * T * T;
+            const DO_A = +(Cs * 0.96).toFixed(2);
+
+            // Efisiensi Pengolahan Limbah Cair Industri (IPAL + Fitoremediasi)
+            const ipalRemoval = STATE.ipal ? 0.88 : 0.0;
+            const phytoRemoval = STATE.phyto ? 0.25 : 0.0;
+            const totalLiquidRemoval = 1 - (1 - ipalRemoval) * (1 - phytoRemoval);
+
+            const BOD_eff = STATE.bodw * (1 - totalLiquidRemoval);
+            const COD_eff = BOD_eff * 2.4;
+            const TDS_eff = STATE.ipal ? 310 : 1280;
+            const pH_eff = STATE.ipal ? 7.0 : 4.7;
+            const DO_eff = STATE.ipal ? 5.6 : 1.1;
+
+            // Neraca Massa Pencampuran di Stasiun B
+            const BOD_B = (Qs_m3s * BOD_A + Qw_m3s * BOD_eff) / Q_total;
+            const COD_B = (Qs_m3s * COD_A + Qw_m3s * COD_eff) / Q_total;
+            const TDS_B = (Qs_m3s * TDS_A + Qw_m3s * TDS_eff) / Q_total;
+            const pH_B = (Qs_m3s * pH_A + Qw_m3s * pH_eff) / Q_total;
+            const DO_B = (Qs_m3s * DO_A + Qw_m3s * DO_eff) / Q_total;
+
+            // Emisi Udara Ambien PM2.5 (µg/m³)
+            const scrubberEff = STATE.scrubber ? 0.85 : 0.0;
+            const ambientFactor = 0.48;
+            const PM25_B = +(PM25_A + STATE.pm25 * (1 - scrubberEff) * ambientFactor).toFixed(1);
+            const PM25_C = +(PM25_A + STATE.pm25 * (1 - scrubberEff) * 0.25).toFixed(1);
+            const PM25_D = +(PM25_A + STATE.pm25 * (1 - scrubberEff) * 0.12).toFixed(1);
+
+            // Model Streeter–Phelps sepanjang 0 - 30 km hilir sungai
+            const kd = 0.24 * Math.pow(1.047, T - 20);
+            const krBase = (STATE.phyto ? 0.92 : 0.46) + (Qs_m3s / 24.0);
+            const kr = krBase * Math.pow(1.024, T - 20);
+
+            const L0 = 1.46 * BOD_B;
+            const D0 = Math.max(0, Cs - DO_B);
+            const velocityKmDay = 18.0 + Qs_m3s * 1.4;
+
+            const sagCurve = [];
+            let minDO = Cs;
+            let critDistKm = 0;
+
+            for (let km = 0; km <= 30; km += 1) {
+                const t = km / velocityKmDay;
+                let Dt;
+                if (Math.abs(kr - kd) < 0.001) {
+                    Dt = (kd * L0 * t + D0) * Math.exp(-kd * t);
+                } else {
+                    Dt = ((kd * L0) / (kr - kd)) * (Math.exp(-kd * t) - Math.exp(-kr * t)) + D0 * Math.exp(-kr * t);
+                }
+                const DO_x = Math.max(0.2, Cs - Dt);
+                sagCurve.push({ km, do: +DO_x.toFixed(2), deficit: +Dt.toFixed(2) });
+                if (DO_x < minDO) {
+                    minDO = DO_x;
+                    critDistKm = km;
+                }
+            }
+
+            // Hukum Darcy Aliran Air Tanah (TPA Stasiun C -> Sumur Warga Stasiun D, jarak = 250 m)
+            const soilObj = SOIL_PROPS[STATE.soil];
+            const hydraulicGradient = 0.025 + (STATE.rain / 150) * 0.015;
+            const v_ms = (soilObj.K * hydraulicGradient) / soilObj.n;
+            const v_mday = v_ms * 86400;
+            const travelDays = 250 / Math.max(1e-7, v_mday);
+            const travelYears = travelDays / 365;
+
+            const rainFactor = 0.45 + (STATE.rain / 150) * 1.15;
+            const soilVuln = STATE.soil === 'coarse_sand' ? 1.0 : (STATE.soil === 'sandy_silt' ? 0.55 : 0.15);
+            const geoFactor = STATE.geo ? 0.05 : 1.0;
+            const leachateImpact = rainFactor * soilVuln * geoFactor;
+
+            // Stasiun C (Akuifer Bawah TPA)
+            const DO_C = +Math.max(0.8, 5.2 - 3.6 * leachateImpact).toFixed(2);
+            const BOD_C = +(3.2 + 85.0 * leachateImpact).toFixed(1);
+            const COD_C = +(12.0 + 210.0 * leachateImpact).toFixed(1);
+            const TDS_C = Math.round(240 + 1850 * leachateImpact);
+            const pH_C = +(7.1 - 1.4 * leachateImpact).toFixed(1);
+
+            // Stasiun D (Sumur Warga 250 m hilir & Badan Air Hilir)
+            const wellImpact = leachateImpact * (STATE.soil === 'coarse_sand' ? 0.85 : 0.55);
+            const DO_D = +Math.min(sagCurve[22].do, Math.max(2.1, 7.1 - 3.4 * wellImpact)).toFixed(2);
+            const BOD_D = +(2.1 + 26.0 * wellImpact).toFixed(1);
+            const COD_D = +(9.0 + 75.0 * wellImpact).toFixed(1);
+            const TDS_D = Math.round(215 + 1150 * wellImpact);
+            const pH_D = +(7.2 - 0.9 * wellImpact).toFixed(1);
+
+            STATE.computed = {
+                Cs: +Cs.toFixed(2),
+                kd: +kd.toFixed(3),
+                kr: +kr.toFixed(3),
+                minDO: +minDO.toFixed(2),
+                critDistKm,
+                sagCurve,
+                v_mday,
+                travelDays,
+                travelYears,
+                leachateImpact,
+                stations: {
+                    A: { do: DO_A, bod: +BOD_A.toFixed(1), cod: +COD_A.toFixed(1), tds: TDS_A, ph: pH_A, pm25: PM25_A },
+                    B: { do: +DO_B.toFixed(2), bod: +BOD_B.toFixed(1), cod: +COD_B.toFixed(1), tds: Math.round(TDS_B), ph: +pH_B.toFixed(1), pm25: PM25_B },
+                    C: { do: DO_C, bod: BOD_C, cod: COD_C, tds: TDS_C, ph: pH_C, pm25: PM25_C },
+                    D: { do: DO_D, bod: BOD_D, cod: COD_D, tds: TDS_D, ph: pH_D, pm25: PM25_D }
+                }
+            };
+        }
+
+        function evaluateStationCompliance(m) {
+            let exceedCount = 0;
+            let warnCount = 0;
+
+            if (m.do < 4.0) exceedCount++;
+            else if (m.do < 5.0) warnCount++;
+
+            if (m.bod > 3.0) exceedCount++;
+            else if (m.bod > 2.5) warnCount++;
+
+            if (m.cod > 25.0) exceedCount++;
+            else if (m.cod > 20.0) warnCount++;
+
+            if (m.tds > 1000) exceedCount++;
+            else if (m.tds > 800) warnCount++;
+
+            if (m.ph < 6.0 || m.ph > 9.0) exceedCount++;
+            if (m.pm25 > 55.0) exceedCount++;
+            else if (m.pm25 > 40.0) warnCount++;
+
+            if (exceedCount > 0) {
+                return { label: 'Melampaui Baku Mutu', level: 'danger', hex: 0xf43f5e, badgeCls: 'bg-rose-500/20 text-rose-300 border-rose-500/40' };
+            }
+            if (warnCount > 0) {
+                return { label: 'Waspada', level: 'warn', hex: 0xf59e0b, badgeCls: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
+            }
+            return { label: 'Memenuhi Baku Mutu', level: 'safe', hex: 0x10b981, badgeCls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
+        }
+
+        // =====================================================================
+        // 3. VISUALISASI 3D INTERAKTIF (THREE.JS MULTI-MEDIA LINGKUNGAN)
+        // =====================================================================
+        let scene, camera, renderer;
+        let terrainTopMesh, vadoseMesh, aquiferMesh, riverMesh, riverBasePosY;
+        let ipalGroup, aerationBubbles, clarifierArm, geomembraneMesh, phytoGroup, scrubberMesh, windTurbineRotor;
+        let leachateParticles, riverPlumeParticles, airSmokeParticles;
+        let stationBeacons = {};
+        let cameraTarget = new THREE.Vector3(0, 0.3, 0);
+        let desiredCamPos = new THREE.Vector3(0, 11.5, 16.5);
+        let spherical = new THREE.Spherical(20.2, Math.PI / 3.05, 0.14);
+        let isDragging = false, prevPointer = { x: 0, y: 0 };
+        const clock = new THREE.Clock();
+
+        function initThreeScene() {
+            const container = document.getElementById('canvas-container');
+            if (typeof THREE === 'undefined') {
+                container.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-rose-300 p-6 text-center">Gagal memuat pustaka visualisasi 3D (Three.js). Pastikan koneksi internet aktif lalu muat ulang halaman.</div>';
+                return;
+            }
+
+            try {
+                scene = new THREE.Scene();
+                scene.fog = new THREE.FogExp2(0x03110f, 0.014);
+
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+                updateCameraFromSpherical();
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                container.appendChild(renderer.domElement);
+
+                // Pencahayaan Realistis dengan Soft Shadows
+                scene.add(new THREE.AmbientLight(0xa7f3d0, 0.68));
+                const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
+                dirLight.position.set(14, 24, 16);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 1024;
+                dirLight.shadow.mapSize.height = 1024;
+                dirLight.shadow.camera.near = 2;
+                dirLight.shadow.camera.far = 55;
+                const d = 15;
+                dirLight.shadow.camera.left = -d;
+                dirLight.shadow.camera.right = d;
+                dirLight.shadow.camera.top = d;
+                dirLight.shadow.camera.bottom = -d;
+                scene.add(dirLight);
+                scene.add(new THREE.HemisphereLight(0x38bdf8, 0x064e3b, 0.45));
+
+                buildGeologicalLayers();
+                buildEcosystemAndEngineering3D();
+                buildStationBeaconRings();
+                buildMultiMediaParticles();
+                buildHotspotBadges();
+                setupOrbitControls(renderer.domElement);
+
+                window.addEventListener('resize', () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    drawSagCurveChart();
+                    drawStationBarChart();
+                });
+
+                animate();
+            } catch (err) {
+                console.error('Kesalahan inisialisasi WebGL:', err);
+            }
+        }
+
+        function buildGeologicalLayers() {
+            const W = 22, D = 12;
+
+            // 1. Batuan Dasar (Bedrock)
+            const bedrock = new THREE.Mesh(
+                new THREE.BoxGeometry(W, 1.2, D),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.92 })
+            );
+            bedrock.position.y = -3.6;
+            scene.add(bedrock);
+
+            // 2. Akuifer Air Tanah (Zona Jenuh)
+            aquiferMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(W - 0.08, 1.8, D - 0.08),
+                new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.65, roughness: 0.22 })
+            );
+            aquiferMesh.position.y = -2.1;
+            scene.add(aquiferMesh);
+
+            // 3. Zona Vadose (Lapisan Tanah Tidak Jenuh)
+            vadoseMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(W - 0.04, 1.7, D - 0.04),
+                new THREE.MeshStandardMaterial({ color: SOIL_PROPS[STATE.soil].color, transparent: true, opacity: 0.88, roughness: 0.88 })
+            );
+            vadoseMesh.position.y = -0.35;
+            scene.add(vadoseMesh);
+
+            // 4. Lapisan Permukaan (Topsoil)
+            terrainTopMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(W, 0.6, D),
+                new THREE.MeshStandardMaterial({ color: 0x15803d, transparent: true, opacity: 1.0, roughness: 0.82 })
+            );
+            terrainTopMesh.position.y = 0.8;
+            terrainTopMesh.receiveShadow = true;
+            scene.add(terrainTopMesh);
+
+            // 5. Aliran Sungai Permukaan dengan Segmen untuk Shimmer Gelombang
+            const riverGeo = new THREE.BoxGeometry(W + 0.1, 0.34, 2.5, 36, 1, 6);
+            riverBasePosY = new Float32Array(riverGeo.attributes.position.count);
+            for (let i = 0; i < riverGeo.attributes.position.count; i++) {
+                riverBasePosY[i] = riverGeo.attributes.position.getY(i);
+            }
+            riverMesh = new THREE.Mesh(
+                riverGeo,
+                new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.88, roughness: 0.14, metalness: 0.1 })
+            );
+            riverMesh.position.set(0, 1.02, -1.8);
+            riverMesh.rotation.y = -0.14;
+            riverMesh.receiveShadow = true;
+            scene.add(riverMesh);
+
+            // Garis Bingkai Penampang Diorama
+            const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(W + 0.08, 5.3, D + 0.08));
+            const cage = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.42 }));
+            cage.position.y = -1.55;
+            scene.add(cage);
+        }
+
+        function buildEcosystemAndEngineering3D() {
+            // Hulu Pegunungan & Hutan Riparian (Stasiun A)
+            const hillMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.9 });
+            const h1 = new THREE.Mesh(new THREE.ConeGeometry(3.1, 2.9, 7), hillMat);
+            h1.position.set(-8.5, 2.4, -3.8);
+            h1.castShadow = true;
+            const h2 = new THREE.Mesh(new THREE.ConeGeometry(2.3, 2.1, 6), hillMat);
+            h2.position.set(-6.5, 2.0, -4.4);
+            h2.castShadow = true;
+            scene.add(h1, h2);
+
+            [[-9.5, -1.5], [-8.0, 0.5], [-6.8, -1.0], [-9.2, 2.2], [-7.4, 3.1]].forEach(([x, z]) => {
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 0.6, 6), new THREE.MeshStandardMaterial({ color: 0x451a03 }));
+                trunk.position.set(x, 1.4, z);
+                trunk.castShadow = true;
+                const crown = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.35, 7), new THREE.MeshStandardMaterial({ color: 0x22c55e }));
+                crown.position.set(x, 2.2, z);
+                crown.castShadow = true;
+                scene.add(trunk, crown);
+            });
+
+            // Turbin Angin Eko-Energi (Identitas Teknik Lingkungan)
+            const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 2.8, 10), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.3 }));
+            tower.position.set(-5.2, 2.5, 2.6);
+            tower.castShadow = true;
+            scene.add(tower);
+
+            windTurbineRotor = new THREE.Group();
+            windTurbineRotor.position.set(-5.2, 3.85, 2.72);
+            const hub = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
+            windTurbineRotor.add(hub);
+            for (let b = 0; b < 3; b++) {
+                const bladePivot = new THREE.Group();
+                bladePivot.rotation.z = (b * Math.PI * 2) / 3;
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.05, 0.02), new THREE.MeshStandardMaterial({ color: 0xf1f5f9 }));
+                blade.position.y = 0.54;
+                bladePivot.add(blade);
+                windTurbineRotor.add(bladePivot);
+            }
+            scene.add(windTurbineRotor);
+
+            // Kawasan Industri, Cerobong Asap & Pipa Outlet (Stasiun B)
+            const factory = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.5, 2.0), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+            factory.position.set(-2.5, 1.85, -4.2);
+            factory.castShadow = true;
+            const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 2.3, 12), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            stack.position.set(-1.7, 2.65, -4.6);
+            stack.castShadow = true;
+            const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2.1, 10), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            pipe.rotation.x = Math.PI / 2;
+            pipe.position.set(-2.0, 1.25, -2.5);
+            scene.add(factory, stack, pipe);
+
+            // Unit Rekayasa 1: IPAL Biologis–Kimia (Kolam Aerasi Berbuih & Klarifier Berputar)
+            ipalGroup = new THREE.Group();
+            const aerationTank = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.72, 16), new THREE.MeshStandardMaterial({ color: 0x059669 }));
+            aerationTank.position.set(-0.5, 1.45, -3.6);
+            aerationTank.castShadow = true;
+            const aerationWater = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.74, 16), new THREE.MeshStandardMaterial({ color: 0x0284c7 }));
+            aerationWater.position.set(-0.5, 1.46, -3.6);
+
+            // Gelembung Aerasi di dalam tangki IPAL
+            const bCount = 28;
+            const bGeo = new THREE.BufferGeometry();
+            const bPos = new Float32Array(bCount * 3);
+            for (let i = 0; i < bCount; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const rad = Math.random() * 0.45;
+                bPos[i * 3] = -0.5 + Math.cos(ang) * rad;
+                bPos[i * 3 + 1] = 1.25 + Math.random() * 0.58;
+                bPos[i * 3 + 2] = -3.6 + Math.sin(ang) * rad;
+            }
+            bGeo.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
+            aerationBubbles = new THREE.Points(bGeo, new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.12, transparent: true, opacity: 0.9 }));
+
+            const clarifierTank = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.65, 16), new THREE.MeshStandardMaterial({ color: 0x0d9488 }));
+            clarifierTank.position.set(0.75, 1.42, -3.8);
+            clarifierTank.castShadow = true;
+            clarifierArm = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.06, 0.08), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
+            clarifierArm.position.set(0.75, 1.78, -3.8);
+
+            ipalGroup.add(aerationTank, aerationWater, aerationBubbles, clarifierTank, clarifierArm);
+            ipalGroup.visible = false;
+            scene.add(ipalGroup);
+
+            // Unit Rekayasa 4: Wet Scrubber pada Cerobong Industri
+            scrubberMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.36, 0.36, 0.55, 14),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, emissive: 0x854d0e, emissiveIntensity: 0.45 })
+            );
+            scrubberMesh.position.set(-1.7, 3.65, -4.6);
+            scrubberMesh.visible = false;
+            scene.add(scrubberMesh);
+
+            // Tempat Pemrosesan Akhir (TPA) Sampah (Stasiun C)
+            const wasteColors = [0x65a30d, 0xca8a04, 0x57534e, 0xb45309];
+            for (let i = 0; i < 14; i++) {
+                const mound = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(0.45 + (i % 3) * 0.18, 1),
+                    new THREE.MeshStandardMaterial({ color: wasteColors[i % wasteColors.length], roughness: 0.95 })
+                );
+                mound.position.set(1.6 + Math.sin(i * 1.7) * 1.3, 1.3 + (i % 3) * 0.14, 3.0 + Math.cos(i * 1.3) * 1.0);
+                mound.castShadow = true;
+                scene.add(mound);
+            }
+
+            // Unit Rekayasa 2: Lapisan Geomembrane HDPE Kedap Air
+            geomembraneMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(3.8, 0.14, 3.0),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, emissive: 0x713f12, emissiveIntensity: 0.5 })
+            );
+            geomembraneMesh.position.set(1.8, 1.12, 3.0);
+            geomembraneMesh.visible = false;
+            scene.add(geomembraneMesh);
+
+            // Unit Rekayasa 3: Zona Fitoremediasi Riparian
+            phytoGroup = new THREE.Group();
+            for (let x = -1.0; x <= 6.5; x += 0.9) {
+                const plant = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.20, 0.78, 6),
+                    new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x065f46, emissiveIntensity: 0.35 })
+                );
+                plant.position.set(x, 1.36, -0.4 - (x + 2) * 0.14);
+                phytoGroup.add(plant);
+            }
+            phytoGroup.visible = false;
+            scene.add(phytoGroup);
+
+            // Pemukiman & Sumur Gali Warga (Stasiun D)
+            [[6.5, 2.5], [8.6, 3.2], [7.8, -3.8]].forEach(([x, z]) => {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 1.0), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+                wall.position.set(x, 1.52, z);
+                wall.castShadow = true;
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(0.88, 0.65, 4), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+                roof.rotation.y = Math.PI / 4;
+                roof.position.set(x, 2.25, z);
+                roof.castShadow = true;
+                scene.add(wall, roof);
+            });
+
+            const wellRing = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.55, 14), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            wellRing.position.set(7.6, 1.35, 0.8);
+            const wellShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.6, 10), new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 }));
+            wellShaft.position.set(7.6, -0.6, 0.8);
+            scene.add(wellRing, wellShaft);
+        }
+
+        function buildStationBeaconRings() {
+            Object.entries(STATION_META).forEach(([id, st]) => {
+                const ringGeo = new THREE.RingGeometry(0.42, 0.62, 24);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.set(st.pos.x, 1.16, st.pos.z);
+                scene.add(ring);
+                stationBeacons[id] = ring;
+            });
+        }
+
+        function buildMultiMediaParticles() {
+            // 1. Partikel Air Lindi Bawah Tanah (Leachate)
+            const lCount = 180;
+            const lGeo = new THREE.BufferGeometry();
+            const lPos = new Float32Array(lCount * 3);
+            for (let i = 0; i < lCount; i++) {
+                lPos[i * 3] = 1.6 + (Math.random() - 0.5) * 2.5;
+                lPos[i * 3 + 1] = 0.8 - Math.random() * 3.2;
+                lPos[i * 3 + 2] = 2.8 + (Math.random() - 0.5) * 2.0;
+            }
+            lGeo.setAttribute('position', new THREE.BufferAttribute(lPos, 3));
+            leachateParticles = new THREE.Points(lGeo, new THREE.PointsMaterial({ color: 0xa3e635, size: 0.24, transparent: true, opacity: 0.9 }));
+            scene.add(leachateParticles);
+
+            // 2. Partikel Limbah Cair Sungai
+            const rCount = 200;
+            const rGeo = new THREE.BufferGeometry();
+            const rPos = new Float32Array(rCount * 3);
+            for (let i = 0; i < rCount; i++) {
+                rPos[i * 3] = -2.0 + Math.random() * 12.8;
+                rPos[i * 3 + 1] = 1.18;
+                rPos[i * 3 + 2] = -1.8 + (Math.random() - 0.5) * 1.9 - (rPos[i * 3] + 2.0) * 0.14;
+            }
+            rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
+            riverPlumeParticles = new THREE.Points(rGeo, new THREE.PointsMaterial({ color: 0xf43f5e, size: 0.23, transparent: true, opacity: 0.88 }));
+            scene.add(riverPlumeParticles);
+
+            // 3. Partikel Kepulan Emisi Udara Cerobong Industri
+            const aCount = 90;
+            const aGeo = new THREE.BufferGeometry();
+            const aPos = new Float32Array(aCount * 3);
+            for (let i = 0; i < aCount; i++) {
+                aPos[i * 3] = -1.7 + Math.random() * 6.0;
+                aPos[i * 3 + 1] = 3.8 + Math.random() * 3.0;
+                aPos[i * 3 + 2] = -4.6 + (Math.random() - 0.5) * 1.5;
+            }
+            aGeo.setAttribute('position', new THREE.BufferAttribute(aPos, 3));
+            airSmokeParticles = new THREE.Points(aGeo, new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.36, transparent: true, opacity: 0.72 }));
+            scene.add(airSmokeParticles);
+        }
+
+        function buildHotspotBadges() {
+            const container = document.getElementById('hotspot-labels');
+            container.innerHTML = '';
+            Object.entries(STATION_META).forEach(([id, st]) => {
+                const badge = document.createElement('div');
+                badge.id = `badge-${id}`;
+                badge.className = 'hotspot-badge pointer-events-auto';
+                badge.onclick = () => {
+                    focusStationIn3D(id);
+                    selectStationDetail(id);
+                    switchLeftTab('stations');
+                    document.getElementById('left-lab-panel').classList.remove('-translate-x-[110%]');
+                };
+                badge.innerHTML = `
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full glass-panel border border-amber-400/60 shadow-lg text-[10px] font-bold text-white whitespace-nowrap">
+                        <span id="dot-${id}" class="w-2 h-2 rounded-full bg-emerald-400 pulse-safe shrink-0"></span>
+                        <span>St. ${id}</span>
+                        <span id="pill-metric-${id}" class="font-mono-code text-[9px] text-amber-200 bg-black/45 px-1.5 py-0.2 rounded-full">DO 7.5</span>
+                    </div>
+                `;
+                container.appendChild(badge);
+            });
+        }
+
+        function updateHotspotBadges() {
+            Object.entries(STATION_META).forEach(([id, st]) => {
+                const el = document.getElementById(`badge-${id}`);
+                if (!el) return;
+                const proj = st.pos.clone().project(camera);
+                if (proj.z > 1) {
+                    el.style.opacity = '0';
+                    return;
+                }
+                el.style.opacity = '1';
+                el.style.left = `${(proj.x * 0.5 + 0.5) * window.innerWidth}px`;
+                el.style.top = `${(-proj.y * 0.5 + 0.5) * window.innerHeight}px`;
+
+                const m = STATE.computed.stations?.[id];
+                if (m) {
+                    const comp = evaluateStationCompliance(m);
+                    const dot = document.getElementById(`dot-${id}`);
+                    if (comp.level === 'safe') dot.className = 'w-2 h-2 rounded-full bg-emerald-400 pulse-safe shrink-0';
+                    else if (comp.level === 'warn') dot.className = 'w-2 h-2 rounded-full bg-amber-400 pulse-warn shrink-0';
+                    else dot.className = 'w-2 h-2 rounded-full bg-rose-500 pulse-danger shrink-0';
+
+                    const pill = document.getElementById(`pill-metric-${id}`);
+                    if (pill) {
+                        if (id === 'A' || id === 'B') pill.textContent = `DO ${m.do} | BOD ${m.bod}`;
+                        else pill.textContent = `TDS ${m.tds} | DO ${m.do}`;
+                    }
+
+                    if (stationBeacons[id]) {
+                        stationBeacons[id].material.color.setHex(comp.hex);
+                    }
+                }
+            });
+        }
+
+        function updateCameraFromSpherical() {
+            const offset = new THREE.Vector3().setFromSpherical(spherical);
+            desiredCamPos.copy(cameraTarget).add(offset);
+        }
+
+        function setupOrbitControls(domEl) {
+            domEl.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                prevPointer = { x: e.clientX, y: e.clientY };
+                if (STATE.autoOrbit) toggleAutoOrbit(false);
+            });
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - prevPointer.x;
+                const dy = e.clientY - prevPointer.y;
+                prevPointer = { x: e.clientX, y: e.clientY };
+                spherical.theta -= dx * 0.007;
+                spherical.phi = Math.max(0.25, Math.min(Math.PI / 2.05, spherical.phi - dy * 0.007));
+                updateCameraFromSpherical();
+            });
+            window.addEventListener('pointerup', () => { isDragging = false; });
+            domEl.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                spherical.radius = Math.max(8, Math.min(30, spherical.radius + e.deltaY * 0.012));
+                updateCameraFromSpherical();
+            }, { passive: false });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsed = clock.elapsedTime;
+
+            if (STATE.autoOrbit && !isDragging) {
+                spherical.theta += delta * 0.22;
+                updateCameraFromSpherical();
+            }
+
+            camera.position.lerp(desiredCamPos, 0.08);
+            camera.lookAt(cameraTarget);
+
+            // Rotasi Bilah Turbin Angin Eko-Energi
+            if (windTurbineRotor) {
+                windTurbineRotor.rotation.z -= delta * 1.45;
+            }
+
+            // Animasi Gelembung Aerasi & Lengan Klarifier IPAL
+            if (STATE.ipal && ipalGroup && ipalGroup.visible) {
+                if (clarifierArm) clarifierArm.rotation.y += delta * 0.8;
+                if (aerationBubbles) {
+                    const bArr = aerationBubbles.geometry.attributes.position.array;
+                    for (let i = 0; i < bArr.length; i += 3) {
+                        bArr[i + 1] += delta * 0.42;
+                        if (bArr[i + 1] > 1.84) bArr[i + 1] = 1.24;
+                    }
+                    aerationBubbles.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            // Animasi Riak Gelombang Permukaan Sungai
+            if (riverMesh && riverBasePosY) {
+                const posAttr = riverMesh.geometry.attributes.position;
+                for (let i = 0; i < posAttr.count; i++) {
+                    const x = posAttr.getX(i);
+                    const z = posAttr.getZ(i);
+                    const baseY = riverBasePosY[i];
+                    if (baseY > 0) {
+                        const wave = Math.sin(x * 1.4 - elapsed * (2.6 + STATE.qs * 0.25) + z * 1.8) * 0.025;
+                        posAttr.setY(i, baseY + wave);
+                    }
+                }
+                posAttr.needsUpdate = true;
+            }
+
+            // Animasi Pulsasi Cincin Beacon Stasiun
+            Object.values(stationBeacons).forEach((ring, idx) => {
+                const s = 1.0 + Math.sin(elapsed * 3.2 + idx) * 0.14;
+                ring.scale.set(s, s, 1);
+            });
+
+            // 1. Animasi Partikel Air Lindi Tanah
+            const darcySpeedVisual = Math.min(2.8, Math.max(0.15, (STATE.computed.v_mday || 0.05) * 4.5));
+            if (leachateParticles) {
+                const pos = leachateParticles.geometry.attributes.position.array;
+                for (let i = 0; i < pos.length; i += 3) {
+                    if (STATE.geo) {
+                        pos[i + 1] = 1.24 + Math.sin(elapsed * 2 + i) * 0.04;
+                    } else {
+                        if (pos[i + 1] > -2.1) {
+                            pos[i + 1] -= 0.55 * delta * (0.4 + STATE.rain / 80);
+                        } else {
+                            pos[i] += darcySpeedVisual * delta;
+                            pos[i + 2] += (0.8 - pos[i + 2]) * 0.35 * delta;
+                            if (pos[i] > 8.2) {
+                                pos[i] = 1.6 + (Math.random() - 0.5) * 2.4;
+                                pos[i + 1] = 0.9;
+                                pos[i + 2] = 2.8 + (Math.random() - 0.5) * 2.0;
+                            }
+                        }
+                    }
+                }
+                leachateParticles.geometry.attributes.position.needsUpdate = true;
+                leachateParticles.material.color.setHex(STATE.geo ? 0x38bdf8 : 0xa3e635);
+            }
+
+            // 2. Animasi Partikel Limbah Sungai
+            const riverSpeedVisual = 1.4 + (STATE.qs / 8.0);
+            if (riverPlumeParticles) {
+                const rPos = riverPlumeParticles.geometry.attributes.position.array;
+                for (let i = 0; i < rPos.length; i += 3) {
+                    rPos[i] += riverSpeedVisual * delta;
+                    rPos[i + 2] = -1.8 - (rPos[i] + 2.0) * 0.14 + Math.sin(rPos[i] * 1.5 + elapsed * 3) * 0.45;
+                    if (rPos[i] > 10.8) rPos[i] = -2.0;
+                }
+                riverPlumeParticles.geometry.attributes.position.needsUpdate = true;
+                const bodB = STATE.computed.stations?.B?.bod || 15;
+                riverPlumeParticles.material.color.setHex(bodB <= 3.5 ? 0x38bdf8 : (bodB <= 15 ? 0xf59e0b : 0xf43f5e));
+            }
+
+            // 3. Animasi Kepulan Emisi Udara Cerobong
+            if (airSmokeParticles) {
+                const aPos = airSmokeParticles.geometry.attributes.position.array;
+                for (let i = 0; i < aPos.length; i += 3) {
+                    aPos[i] += 1.35 * delta;
+                    aPos[i + 1] += 0.65 * delta;
+                    aPos[i + 2] += Math.sin(elapsed + i) * 0.25 * delta;
+                    if (aPos[i + 1] > 7.2 || aPos[i] > 7.5) {
+                        aPos[i] = -1.7 + (Math.random() - 0.5) * 0.3;
+                        aPos[i + 1] = 3.85;
+                        aPos[i + 2] = -4.6 + (Math.random() - 0.5) * 0.3;
+                    }
+                }
+                airSmokeParticles.geometry.attributes.position.needsUpdate = true;
+                const pmB = STATE.computed.stations?.B?.pm25 || 100;
+                airSmokeParticles.material.color.setHex(STATE.scrubber || pmB <= 55 ? 0xf8fafc : 0x475569);
+                airSmokeParticles.material.opacity = STATE.scrubber ? 0.32 : Math.min(0.92, 0.35 + (STATE.pm25 / 450) * 0.55);
+                airSmokeParticles.material.size = STATE.scrubber ? 0.22 : (0.28 + (STATE.pm25 / 450) * 0.28);
+            }
+
+            // 4. Warna Badan Air Sungai & Tinggi Akuifer
+            if (riverMesh) {
+                const bodB = STATE.computed.stations?.B?.bod || 15;
+                const targetColor = bodB <= 3.5 ? 0x0ea5e9 : (bodB <= 18 ? 0x0d9488 : 0x581c87);
+                riverMesh.material.color.lerp(new THREE.Color(targetColor), 0.06);
+            }
+            if (aquiferMesh) {
+                const targetScale = 0.85 + (STATE.rain / 150) * 0.28;
+                aquiferMesh.scale.y += (targetScale - aquiferMesh.scale.y) * 0.08;
+            }
+
+            updateHotspotBadges();
+            renderer.render(scene, camera);
+        }
+
+        // =====================================================================
+        // 4. SINKRONISASI UI, HUD, GRAFIK, TELEMETRI, EKSPOR CSV & CETAK A4
+        // =====================================================================
+        function updateSliderFill(el) {
+            if (!el) return;
+            const min = parseFloat(el.min) || 0;
+            const max = parseFloat(el.max) || 100;
+            const val = parseFloat(el.value) || 0;
+            const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+            el.style.setProperty('--fill-pct', `${pct}%`);
+        }
+
+        function updateAllSliderFills() {
+            ['qw', 'bodw', 'qs', 'temp', 'rain', 'pm25'].forEach(k => {
+                updateSliderFill(document.getElementById(`rng-${k}`));
+            });
+        }
+
+        function syncInput(key, val) {
+            const numVal = parseFloat(val);
+            if (isNaN(numVal)) return;
+            STATE[key] = numVal;
+            document.getElementById(`num-${key}`).value = numVal;
+            const rng = document.getElementById(`rng-${key}`);
+            rng.value = numVal;
+            updateSliderFill(rng);
+            document.getElementById('active-preset-tag').textContent = 'Kustom';
+            refreshAllViews();
+        }
+
+        function updateSoilType(soilKey) {
+            STATE.soil = soilKey;
+            if (vadoseMesh) vadoseMesh.material.color.setHex(SOIL_PROPS[soilKey].color);
+            const swatch = document.getElementById('legend-vadose-swatch');
+            const text = document.getElementById('legend-vadose-text');
+            if (swatch) swatch.style.backgroundColor = SOIL_PROPS[soilKey].hex;
+            if (text) text.innerHTML = `<strong>Zona Vadose</strong> (2–10 m): ${SOIL_PROPS[soilKey].name}`;
+            refreshAllViews();
+        }
+
+        function toggleEngineering(type, checked) {
+            STATE[type] = checked;
+            if (type === 'ipal' && ipalGroup) ipalGroup.visible = checked;
+            if (type === 'geo' && geomembraneMesh) geomembraneMesh.visible = checked;
+            if (type === 'phyto' && phytoGroup) phytoGroup.visible = checked;
+            if (type === 'scrubber' && scrubberMesh) scrubberMesh.visible = checked;
+            refreshAllViews();
+        }
+
+        function applyPreset(preset) {
+            if (preset === 'baseline') {
+                Object.assign(STATE, { qw: 8640, bodw: 460, qs: 3.5, temp: 28.0, rain: 25, pm25: 210, soil: 'sandy_silt', ipal: false, geo: false, phyto: false, scrubber: false });
+            } else if (preset === 'drought') {
+                Object.assign(STATE, { qw: 21600, bodw: 920, qs: 1.0, temp: 33.0, rain: 5, pm25: 340, soil: 'coarse_sand', ipal: false, geo: false, phyto: false, scrubber: false });
+            } else if (preset === 'rainstorm') {
+                Object.assign(STATE, { qw: 14400, bodw: 580, qs: 12.5, temp: 26.0, rain: 140, pm25: 190, soil: 'coarse_sand', ipal: false, geo: false, phyto: false, scrubber: false });
+            } else if (preset === 'integrated') {
+                Object.assign(STATE, { qw: 8640, bodw: 460, qs: 5.5, temp: 27.0, rain: 30, pm25: 210, soil: 'clay', ipal: true, geo: true, phyto: true, scrubber: true });
+            }
+
+            ['qw', 'bodw', 'qs', 'temp', 'rain', 'pm25'].forEach(k => {
+                document.getElementById(`num-${k}`).value = STATE[k];
+                const rng = document.getElementById(`rng-${k}`);
+                rng.value = STATE[k];
+                updateSliderFill(rng);
+            });
+            document.getElementById('sel-soil').value = STATE.soil;
+            updateSoilType(STATE.soil);
+            document.getElementById('chk-ipal').checked = STATE.ipal;
+            document.getElementById('chk-geo').checked = STATE.geo;
+            document.getElementById('chk-phyto').checked = STATE.phyto;
+            document.getElementById('chk-scrubber').checked = STATE.scrubber;
+
+            if (ipalGroup) ipalGroup.visible = STATE.ipal;
+            if (geomembraneMesh) geomembraneMesh.visible = STATE.geo;
+            if (phytoGroup) phytoGroup.visible = STATE.phyto;
+            if (scrubberMesh) scrubberMesh.visible = STATE.scrubber;
+
+            const labels = {
+                baseline: 'Baseline',
+                drought: 'Akut Kemarau',
+                rainstorm: 'Hujan & Lindi',
+                integrated: 'Rekayasa Terpadu'
+            };
+            document.getElementById('active-preset-tag').textContent = labels[preset];
+            refreshAllViews();
+            showToast(`Skenario "${labels[preset]}" berhasil diterapkan.`);
+        }
+
+        function refreshAllViews() {
+            runEnvironmentalCalculations();
+            updateLiveKPIHud();
+            updateAnalyticsCards();
+            selectStationDetail(STATE.selectedStation);
+            drawSagCurveChart();
+            drawStationBarChart();
+            evaluatePracticalMissions();
+        }
+
+        function updateLiveKPIHud() {
+            const c = STATE.computed;
+            const stB = c.stations.B;
+            const stD = c.stations.D;
+
+            const doEl = document.getElementById('hud-do-crit');
+            doEl.textContent = `${c.minDO} mg/L`;
+            doEl.className = `font-mono-code font-bold ${c.minDO >= 4.0 ? 'text-emerald-300' : 'text-rose-300'}`;
+
+            const bodEl = document.getElementById('hud-bod-b');
+            bodEl.textContent = `${stB.bod} mg/L`;
+            bodEl.className = `font-mono-code font-bold ${stB.bod <= 3.0 ? 'text-emerald-300' : 'text-amber-300'}`;
+
+            const tdsEl = document.getElementById('hud-tds-d');
+            tdsEl.textContent = `${stD.tds} mg/L`;
+            tdsEl.className = `font-mono-code font-bold ${stD.tds <= 1000 ? 'text-cyan-300' : 'text-rose-300'}`;
+
+            const pmEl = document.getElementById('hud-pm25-b');
+            pmEl.textContent = `${stB.pm25} µg/m³`;
+            pmEl.className = `font-mono-code font-bold ${stB.pm25 <= 55.0 ? 'text-emerald-300' : 'text-orange-300'}`;
+
+            // Evaluasi Kepatuhan Keseluruhan PP 22/2021
+            const levels = Object.values(c.stations).map(m => evaluateStationCompliance(m).level);
+            const dot = document.getElementById('hud-pp-dot');
+            const badge = document.getElementById('hud-pp-badge');
+
+            if (levels.includes('danger')) {
+                dot.className = 'w-2 h-2 rounded-full bg-rose-500 pulse-danger';
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40';
+                badge.textContent = 'PP 22/2021: Melampaui Baku Mutu';
+            } else if (levels.includes('warn')) {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400 pulse-warn';
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
+                badge.textContent = 'PP 22/2021: Waspada';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 pulse-safe';
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                badge.textContent = 'PP 22/2021: Memenuhi Baku Mutu';
+            }
+        }
+
+        function updateAnalyticsCards() {
+            const c = STATE.computed;
+            document.getElementById('calc-bod-mix').textContent = `${c.stations.B.bod} mg/L`;
+            document.getElementById('calc-do-sat').textContent = `${c.Cs} mg/L`;
+            document.getElementById('calc-do-crit').textContent = `${c.minDO} mg/L`;
+            document.getElementById('calc-xc-label').textContent = `Titik Kritis Xc: ${c.critDistKm} km`;
+            document.getElementById('sp-equation-live').textContent = `kd = ${c.kd}/hari | kr = ${c.kr}/hari | Cs = ${c.Cs} mg/L | DOc = ${c.minDO} mg/L`;
+
+            const sagPill = document.getElementById('sag-status-pill');
+            if (c.minDO >= 4.0) {
+                sagPill.textContent = 'Memenuhi Baku Mutu (≥ 4,0 mg/L)';
+                sagPill.className = 'shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            } else {
+                sagPill.textContent = 'Melampaui Baku Mutu (< 4,0 mg/L)';
+                sagPill.className = 'shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            }
+
+            const vStr = c.v_mday < 0.01 ? `${(c.v_mday * 1000).toFixed(2)} mm/hari` : `${c.v_mday.toFixed(3)} m/hari`;
+            const tStr = c.travelYears >= 2 ? `${c.travelYears.toFixed(1)} Tahun` : `${Math.round(c.travelDays)} Hari`;
+            document.getElementById('calc-darcy-v').textContent = vStr;
+            document.getElementById('calc-darcy-t').textContent = tStr;
+
+            // Update Darcy Plume Track Bar (0 m -> 250 m)
+            const plumeBar = document.getElementById('darcy-plume-bar');
+            const geoShield = document.getElementById('darcy-geo-shield');
+            const trackStatus = document.getElementById('darcy-track-status');
+
+            if (STATE.geo) {
+                plumeBar.style.width = '8%';
+                plumeBar.className = 'h-full rounded-full transition-all duration-500 bg-cyan-400';
+                geoShield.classList.remove('hidden');
+                trackStatus.textContent = 'Tertahan Geomembrane (95%)';
+                trackStatus.className = 'text-emerald-300 font-mono-code';
+            } else {
+                const reachPct = Math.min(100, Math.max(18, Math.round(c.leachateImpact * 65)));
+                plumeBar.style.width = `${reachPct}%`;
+                plumeBar.className = 'h-full rounded-full transition-all duration-500 bg-gradient-to-r from-lime-500 via-amber-500 to-rose-500';
+                geoShield.classList.add('hidden');
+                trackStatus.textContent = `Jangkauan Plume: ${Math.round((reachPct / 100) * 250)} m`;
+                trackStatus.className = 'text-amber-300 font-mono-code';
+            }
+
+            const riskBanner = document.getElementById('darcy-risk-banner');
+            if (STATE.geo) {
+                riskBanner.className = 'p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-[11px] text-emerald-200';
+                riskBanner.textContent = 'Lapisan Geomembrane HDPE aktif: 95% air lindi tertahan sehingga akuifer Sumur Warga terlindungi.';
+            } else if (STATE.soil === 'coarse_sand') {
+                riskBanner.className = 'p-2 rounded-lg bg-rose-500/15 border border-rose-500/35 text-[11px] text-rose-200';
+                riskBanner.textContent = `Peringatan Kritis: Akuifer Pasir Kasar sangat permeabel! Kontaminan mencapai Sumur Warga (250 m) dalam ${tStr}.`;
+            } else {
+                riskBanner.className = 'p-2 rounded-lg bg-amber-500/15 border border-amber-500/35 text-[11px] text-amber-200';
+                riskBanner.textContent = `Air lindi bermigrasi pada akuifer ${SOIL_PROPS[STATE.soil].name} dengan estimasi waktu tempuh ${tStr}.`;
+            }
+        }
+
+        function selectStationDetail(stId) {
+            STATE.selectedStation = stId;
+            ['A', 'B', 'C', 'D'].forEach(id => {
+                const btn = document.getElementById(`st-btn-${id}`);
+                btn.className = id === stId
+                    ? 'py-1.5 rounded-xl font-bold text-[11px] bg-emerald-500/25 text-amber-300 border border-amber-400/50 transition'
+                    : 'py-1.5 rounded-xl font-bold text-[11px] bg-black/40 text-slate-300 border border-emerald-800 hover:text-white transition';
+            });
+
+            const meta = STATION_META[stId];
+            const m = STATE.computed.stations[stId];
+            const comp = evaluateStationCompliance(m);
+
+            const rows = [
+                {
+                    param: 'Oksigen Terlarut (DO)',
+                    val: `${m.do} mg/L`,
+                    std: '≥ 4,0 mg/L',
+                    ok: m.do >= 4.0,
+                    pct: Math.min(100, Math.round((m.do / 9.0) * 100)),
+                    threshPct: Math.round((4.0 / 9.0) * 100)
+                },
+                {
+                    param: 'BOD₅',
+                    val: `${m.bod} mg/L`,
+                    std: '≤ 3,0 mg/L',
+                    ok: m.bod <= 3.0,
+                    pct: Math.min(100, Math.round((m.bod / 12.0) * 100)),
+                    threshPct: Math.round((3.0 / 12.0) * 100)
+                },
+                {
+                    param: 'COD',
+                    val: `${m.cod} mg/L`,
+                    std: '≤ 25,0 mg/L',
+                    ok: m.cod <= 25.0,
+                    pct: Math.min(100, Math.round((m.cod / 80.0) * 100)),
+                    threshPct: Math.round((25.0 / 80.0) * 100)
+                },
+                {
+                    param: 'Zat Padat Terlarut (TDS)',
+                    val: `${m.tds} mg/L`,
+                    std: '≤ 1.000 mg/L',
+                    ok: m.tds <= 1000,
+                    pct: Math.min(100, Math.round((m.tds / 2000) * 100)),
+                    threshPct: 50
+                },
+                {
+                    param: 'Derajat Keasaman (pH)',
+                    val: `${m.ph}`,
+                    std: '6,0 – 9,0',
+                    ok: m.ph >= 6.0 && m.ph <= 9.0,
+                    pct: Math.min(100, Math.max(5, Math.round(((m.ph - 4.0) / 6.0) * 100))),
+                    threshPct: 33
+                },
+                {
+                    param: 'Partikulat Udara (PM₂.₅)',
+                    val: `${m.pm25} µg/m³`,
+                    std: '≤ 55,0 µg/m³',
+                    ok: m.pm25 <= 55.0,
+                    pct: Math.min(100, Math.round((m.pm25 / 150.0) * 100)),
+                    threshPct: Math.round((55.0 / 150.0) * 100)
+                }
+            ];
+
+            document.getElementById('station-detail-table').innerHTML = `
+                <div class="flex items-start justify-between gap-2 border-b border-emerald-800/60 pb-2">
+                    <div>
+                        <div class="font-bold text-white text-xs">${meta.fullName}</div>
+                        <div class="text-[10px] text-slate-300 mt-0.5">${meta.desc}</div>
+                    </div>
+                    <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${comp.badgeCls}">${comp.label}</span>
+                </div>
+                <div class="space-y-2">
+                    ${rows.map(r => `
+                        <div class="bg-black/40 p-2 rounded-xl border border-emerald-950/80 space-y-1">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="text-slate-200 font-medium">${r.param}</span>
+                                <div class="flex items-center gap-2 font-mono-code text-[10px]">
+                                    <span class="font-bold ${r.ok ? 'text-emerald-300' : 'text-rose-300'}">${r.val}</span>
+                                    <span class="text-slate-400">(${r.std})</span>
+                                    <span class="font-sans font-bold px-1.5 py-0.2 rounded ${r.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">${r.ok ? 'Aman' : 'Melebihi'}</span>
+                                </div>
+                            </div>
+                            <div class="relative w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300 ${r.ok ? 'bg-emerald-400' : 'bg-rose-500'}" style="width: ${r.pct}%;"></div>
+                                <div class="absolute top-0 bottom-0 w-0.5 bg-amber-300" style="left: ${r.threshPct}%;" title="Ambang Baku Mutu"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('all-stations-summary').innerHTML = Object.entries(STATION_META).map(([id, info]) => {
+                const stData = STATE.computed.stations[id];
+                const stComp = evaluateStationCompliance(stData);
+                return `
+                    <div onclick="selectStationDetail('${id}')" class="p-2.5 rounded-xl bg-black/40 border ${id === stId ? 'border-amber-400/60' : 'border-emerald-900/70'} hover:border-emerald-500 cursor-pointer flex items-center justify-between gap-2 transition">
+                        <div>
+                            <div class="font-bold text-white text-[11px]">${info.shortName}</div>
+                            <div class="font-mono-code text-[10px] text-slate-300">DO: ${stData.do} | BOD₅: ${stData.bod} | TDS: ${stData.tds} | PM₂.₅: ${stData.pm25}</div>
+                        </div>
+                        <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${stComp.badgeCls}">${stComp.label}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =====================================================================
+        // KANVAS GRAFIK STREETER-PHELPS DENGAN GRADIENT FILL & HOVER INSPECTION
+        // =====================================================================
+        let sagHoverKm = null;
+
+        function initSagChartHover() {
+            const canvas = document.getElementById('sag-chart-canvas');
+            if (!canvas) return;
+
+            const updateHover = (clientX) => {
+                const rect = canvas.getBoundingClientRect();
+                const padLeft = 30, padRight = 12;
+                const plotW = rect.width - padLeft - padRight;
+                const relX = clientX - rect.left - padLeft;
+                if (relX < 0 || relX > plotW) {
+                    sagHoverKm = null;
+                    document.getElementById('sag-hover-tooltip').classList.add('hidden');
+                    drawSagCurveChart();
+                    return;
+                }
+                const km = Math.round((relX / plotW) * 30);
+                sagHoverKm = Math.max(0, Math.min(30, km));
+                const pt = STATE.computed.sagCurve?.[sagHoverKm];
+                if (pt) {
+                    const tip = document.getElementById('sag-hover-tooltip');
+                    tip.classList.remove('hidden');
+                    tip.innerHTML = `Jarak: <span class="text-amber-300 font-bold">${pt.km} km</span> • DO: <span class="${pt.do >= 4.0 ? 'text-emerald-300' : 'text-rose-300'} font-bold">${pt.do} mg/L</span>`;
+                }
+                drawSagCurveChart();
+            };
+
+            canvas.addEventListener('pointermove', (e) => updateHover(e.clientX));
+            canvas.addEventListener('pointerdown', (e) => updateHover(e.clientX));
+            canvas.addEventListener('pointerleave', () => {
+                sagHoverKm = null;
+                document.getElementById('sag-hover-tooltip').classList.add('hidden');
+                drawSagCurveChart();
+            });
+        }
+
+        function drawSagCurveChart() {
+            const canvas = document.getElementById('sag-chart-canvas');
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            if (rect.width === 0) return;
+
+            canvas.width = rect.width * 2;
+            canvas.height = rect.height * 2;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(2, 2);
+
+            const W = rect.width;
+            const H = rect.height;
+            const pad = { top: 14, right: 12, bottom: 22, left: 30 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+
+            ctx.clearRect(0, 0, W, H);
+
+            // Zona Bahaya Hipoksia (DO < 4.0 mg/L)
+            const yThreshold = pad.top + plotH - (4.0 / 10) * plotH;
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+            ctx.fillRect(pad.left, yThreshold, plotW, pad.top + plotH - yThreshold);
+
+            // Garis Kisi (0 - 10 mg/L)
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.16)';
+            ctx.lineWidth = 1;
+            ctx.font = '9px JetBrains Mono';
+            ctx.fillStyle = '#cbd5e1';
+            for (let yVal = 0; yVal <= 10; yVal += 2) {
+                const y = pad.top + plotH - (yVal / 10) * plotH;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left + plotW, y);
+                ctx.stroke();
+                ctx.fillText(yVal.toString(), 8, y + 3);
+            }
+
+            // Label Sumbu X (0 - 30 km)
+            for (let km = 0; km <= 30; km += 5) {
+                const x = pad.left + (km / 30) * plotW;
+                ctx.fillText(`${km}km`, x - 10, H - 6);
+            }
+
+            // Garis Ambang Batas Baku Mutu DO = 4.0 mg/L
+            ctx.strokeStyle = '#10b981';
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(pad.left, yThreshold);
+            ctx.lineTo(pad.left + plotW, yThreshold);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const curve = STATE.computed.sagCurve || [];
+            if (curve.length > 0) {
+                // Gradient Area Fill di bawah kurva DO
+                const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+                grad.addColorStop(0, 'rgba(34, 211, 238, 0.30)');
+                grad.addColorStop(1, 'rgba(34, 211, 238, 0.01)');
+
+                ctx.beginPath();
+                curve.forEach((pt, idx) => {
+                    const x = pad.left + (pt.km / 30) * plotW;
+                    const y = pad.top + plotH - (Math.min(10, pt.do) / 10) * plotH;
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.lineTo(pad.left + plotW, pad.top + plotH);
+                ctx.lineTo(pad.left, pad.top + plotH);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Garis Utama Kurva Streeter-Phelps
+                ctx.strokeStyle = '#22d3ee';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                curve.forEach((pt, idx) => {
+                    const x = pad.left + (pt.km / 30) * plotW;
+                    const y = pad.top + plotH - (Math.min(10, pt.do) / 10) * plotH;
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Penanda Titik Kritis (Xc, DOc)
+                const critX = pad.left + (STATE.computed.critDistKm / 30) * plotW;
+                const critY = pad.top + plotH - (Math.min(10, STATE.computed.minDO) / 10) * plotH;
+                ctx.fillStyle = STATE.computed.minDO < 4.0 ? 'rgba(244, 63, 94, 0.3)' : 'rgba(234, 179, 8, 0.3)';
+                ctx.beginPath();
+                ctx.arc(critX, critY, 8.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = STATE.computed.minDO < 4.0 ? '#f43f5e' : '#eab308';
+                ctx.beginPath();
+                ctx.arc(critX, critY, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Garis & Titik Hover Interaktif
+                if (sagHoverKm !== null && curve[sagHoverKm]) {
+                    const hPt = curve[sagHoverKm];
+                    const hx = pad.left + (hPt.km / 30) * plotW;
+                    const hy = pad.top + plotH - (Math.min(10, hPt.do) / 10) * plotH;
+
+                    ctx.strokeStyle = 'rgba(250, 204, 21, 0.75)';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(hx, pad.top);
+                    ctx.lineTo(hx, pad.top + plotH);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, 4.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // =====================================================================
+        // KANVAS GRAFIK BATANG PERBANDINGAN ANTAR STASIUN (A-D)
+        // =====================================================================
+        function drawStationBarChart() {
+            const canvas = document.getElementById('station-bar-canvas');
+            if (!canvas || !STATE.computed.stations) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            if (rect.width === 0) return;
+
+            canvas.width = rect.width * 2;
+            canvas.height = rect.height * 2;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(2, 2);
+
+            const W = rect.width;
+            const H = rect.height;
+            const pad = { top: 20, right: 12, bottom: 20, left: 28 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+
+            ctx.clearRect(0, 0, W, H);
+
+            const mode = document.getElementById('bar-metric-mode')?.value || 'water';
+            const ids = ['A', 'B', 'C', 'D'];
+            const maxVal = mode === 'water' ? 25 : 200;
+
+            // Grid horizontal
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.14)';
+            ctx.font = '8px JetBrains Mono';
+            ctx.fillStyle = '#94a3b8';
+            for (let i = 0; i <= 4; i++) {
+                const v = (maxVal / 4) * i;
+                const y = pad.top + plotH - (v / maxVal) * plotH;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left + plotW, y);
+                ctx.stroke();
+                ctx.fillText(Math.round(v).toString(), 4, y + 3);
+            }
+
+            // Legenda singkat di atas
+            ctx.font = '9px Inter';
+            if (mode === 'water') {
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(pad.left, 5, 8, 8);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText('DO (mg/L)', pad.left + 11, 12);
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(pad.left + 72, 5, 8, 8);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText('BOD₅ (mg/L)', pad.left + 83, 12);
+            } else {
+                ctx.fillStyle = '#a3e635';
+                ctx.fillRect(pad.left, 5, 8, 8);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText('TDS (×10 mg/L)', pad.left + 11, 12);
+
+                ctx.fillStyle = '#fb923c';
+                ctx.fillRect(pad.left + 98, 5, 8, 8);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText('PM₂.₅ (µg/m³)', pad.left + 109, 12);
+            }
+
+            const groupW = plotW / ids.length;
+            const barW = Math.min(18, groupW * 0.28);
+
+            ids.forEach((id, idx) => {
+                const st = STATE.computed.stations[id];
+                const centerX = pad.left + groupW * (idx + 0.5);
+
+                const val1 = mode === 'water' ? st.do : st.tds / 10;
+                const val2 = mode === 'water' ? st.bod : st.pm25;
+
+                const h1 = Math.min(plotH, (val1 / maxVal) * plotH);
+                const h2 = Math.min(plotH, (val2 / maxVal) * plotH);
+
+                ctx.fillStyle = mode === 'water' ? '#38bdf8' : '#a3e635';
+                ctx.fillRect(centerX - barW - 2, pad.top + plotH - h1, barW, h1);
+
+                ctx.fillStyle = mode === 'water' ? '#f43f5e' : '#fb923c';
+                ctx.fillRect(centerX + 2, pad.top + plotH - h2, barW, h2);
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 9px Inter';
+                ctx.fillText(`St.${id}`, centerX - 10, H - 6);
+            });
+        }
+
+        // =====================================================================
+        // EKSPOR CSV & CETAK LAPORAN RESMI A4 UNIMAL
+        // =====================================================================
+        function getStudentIdentity() {
+            return {
+                nama: document.getElementById('id-nama')?.value.trim() || '-',
+                nim: document.getElementById('id-nim')?.value.trim() || '-',
+                kelompok: document.getElementById('id-kelompok')?.value.trim() || '-',
+                dosen: document.getElementById('id-dosen')?.value.trim() || '-'
+            };
+        }
+
+        function saveStudentIdentity() {
+            const idObj = getStudentIdentity();
+            try {
+                localStorage.setItem('envirolens_student_identity', JSON.stringify(idObj));
+            } catch (e) {}
+            const sub = document.getElementById('hdr-subtitle');
+            if (sub && idObj.nama !== '-') {
+                sub.textContent = `Praktikan: ${idObj.nama} (${idObj.nim}) • ${idObj.kelompok}`;
+            }
+        }
+
+        function loadStudentIdentity() {
+            try {
+                const raw = localStorage.getItem('envirolens_student_identity');
+                if (!raw) return;
+                const idObj = JSON.parse(raw);
+                if (idObj.nama && idObj.nama !== '-') document.getElementById('id-nama').value = idObj.nama;
+                if (idObj.nim && idObj.nim !== '-') document.getElementById('id-nim').value = idObj.nim;
+                if (idObj.kelompok && idObj.kelompok !== '-') document.getElementById('id-kelompok').value = idObj.kelompok;
+                if (idObj.dosen && idObj.dosen !== '-') document.getElementById('id-dosen').value = idObj.dosen;
+                saveStudentIdentity();
+            } catch (e) {}
+        }
+
+        function svgToDataUrl(svgId) {
+            const svgEl = document.getElementById(svgId);
+            if (!svgEl) return '';
+            const xml = new XMLSerializer().serializeToString(svgEl);
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+        }
+
+        function prepareAndPrintReport() {
+            const idObj = getStudentIdentity();
+            const c = STATE.computed;
+
+            // Sinkronkan Logo Resmi pada Kop Surat A4
+            document.getElementById('print-logo-unimal').src = svgToDataUrl('hdr-logo-unimal-svg');
+            document.getElementById('print-logo-tl').src = svgToDataUrl('hdr-logo-tl-svg');
+
+            const nowStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('print-date-line').textContent = `Lhokseumawe, ${nowStr}`;
+            document.getElementById('print-sign-dosen').textContent = idObj.dosen !== '-' ? `( ${idObj.dosen} )` : '( ...................................................... )';
+            document.getElementById('print-sign-student').textContent = idObj.nama !== '-' ? `( ${idObj.nama} )` : '( ...................................................... )';
+
+            document.getElementById('print-student-box').innerHTML = `
+                <div><strong>Nama Mahasiswa:</strong> ${escapeHtml(idObj.nama)}</div>
+                <div><strong>Kelompok Praktikum:</strong> ${escapeHtml(idObj.kelompok)}</div>
+                <div><strong>NIM:</strong> ${escapeHtml(idObj.nim)}</div>
+                <div><strong>Dosen Pengampu:</strong> ${escapeHtml(idObj.dosen)}</div>
+            `;
+
+            document.getElementById('print-model-box').innerHTML = `
+                <h2 class="font-bold text-xs uppercase mb-1.5 text-emerald-950">I. Parameter Input Simulasi & Hasil Pemodelan Matematis</h2>
+                <table class="w-full border-collapse border border-slate-400 text-[10px]">
+                    <tr class="bg-slate-100">
+                        <th class="border border-slate-400 p-1.5 text-left">Parameter Input & Intervensi</th>
+                        <th class="border border-slate-400 p-1.5 text-right">Nilai</th>
+                        <th class="border border-slate-400 p-1.5 text-left">Keluaran Pemodelan Matematis</th>
+                        <th class="border border-slate-400 p-1.5 text-right">Hasil</th>
+                    </tr>
+                    <tr>
+                        <td class="border border-slate-400 p-1.5">Debit Limbah (Qw) / Sungai (Qs)</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${STATE.qw} m³/hr | ${STATE.qs} m³/s</td>
+                        <td class="border border-slate-400 p-1.5">Oksigen Terlarut Jenuh (Cs)</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${c.Cs} mg/L</td>
+                    </tr>
+                    <tr>
+                        <td class="border border-slate-400 p-1.5">BOD₅ Limbah / Suhu Air (T)</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${STATE.bodw} mg/L | ${STATE.temp} °C</td>
+                        <td class="border border-slate-400 p-1.5">DO Kritis Streeter–Phelps (DOc)</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${c.minDO} mg/L (pada ${c.critDistKm} km)</td>
+                    </tr>
+                    <tr>
+                        <td class="border border-slate-400 p-1.5">Curah Hujan / Akuifer / Emisi PM₂.₅</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${STATE.rain} mm | ${SOIL_PROPS[STATE.soil].name} | ${STATE.pm25} µg/Nm³</td>
+                        <td class="border border-slate-400 p-1.5">Kecepatan Darcy (vs) & Waktu Tiba 250 m</td>
+                        <td class="border border-slate-400 p-1.5 text-right font-mono-code">${c.v_mday.toFixed(4)} m/hr (${c.travelYears.toFixed(1)} thn)</td>
+                    </tr>
+                    <tr>
+                        <td class="border border-slate-400 p-1.5" colspan="4">
+                            <strong>Teknologi Rekayasa Aktif:</strong>
+                            IPAL = ${STATE.ipal ? 'Aktif' : 'Nonaktif'} |
+                            Geomembrane HDPE = ${STATE.geo ? 'Aktif' : 'Nonaktif'} |
+                            Fitoremediasi = ${STATE.phyto ? 'Aktif' : 'Nonaktif'} |
+                            Wet Scrubber = ${STATE.scrubber ? 'Aktif' : 'Nonaktif'}
+                        </td>
+                    </tr>
+                </table>
+            `;
+
+            document.getElementById('print-stations-box').innerHTML = `
+                <h2 class="font-bold text-xs uppercase mb-1.5 text-emerald-950">II. Evaluasi Telemetri Stasiun Pemantauan vs Baku Mutu PP No. 22 Tahun 2021</h2>
+                <table class="w-full border-collapse border border-slate-400 text-[10px]">
+                    <thead>
+                        <tr class="bg-slate-100">
+                            <th class="border border-slate-400 p-1.5 text-left">Stasiun Pemantauan</th>
+                            <th class="border border-slate-400 p-1.5 text-right">DO (≥4,0)</th>
+                            <th class="border border-slate-400 p-1.5 text-right">BOD₅ (≤3,0)</th>
+                            <th class="border border-slate-400 p-1.5 text-right">COD (≤25)</th>
+                            <th class="border border-slate-400 p-1.5 text-right">TDS (≤1000)</th>
+                            <th class="border border-slate-400 p-1.5 text-right">pH (6–9)</th>
+                            <th class="border border-slate-400 p-1.5 text-right">PM₂.₅ (≤55)</th>
+                            <th class="border border-slate-400 p-1.5 text-center">Status PP 22/2021</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(c.stations).map(([id, m]) => `
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold">${STATION_META[id].shortName}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.do}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.bod}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.cod}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.tds}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.ph}</td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono-code">${m.pm25}</td>
+                                <td class="border border-slate-400 p-1.5 text-center font-bold">${evaluateStationCompliance(m).label}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            setTimeout(() => window.print(), 120);
+        }
+
+        function exportSimulationCSV() {
+            const c = STATE.computed;
+            const idObj = getStudentIdentity();
+            const rows = [
+                ['LAPORAN PRAKTIKUM VIRTUAL PENGANTAR TEKNIK LINGKUNGAN - UNIVERSITAS MALIKUSSALEH'],
+                ['Nama Mahasiswa', idObj.nama, 'NIM', idObj.nim],
+                ['Kelompok Praktikum', idObj.kelompok, 'Dosen Pengampu', idObj.dosen],
+                [],
+                ['PARAMETER INPUT SIMULASI', 'NILAI', 'SATUAN'],
+                ['Debit Limbah Industri (Qw)', STATE.qw, 'm3/hari'],
+                ['Konsentrasi BOD5 Limbah', STATE.bodw, 'mg/L'],
+                ['Debit Sungai Hulu (Qs)', STATE.qs, 'm3/detik'],
+                ['Suhu Air Sungai (T)', STATE.temp, 'Celcius'],
+                ['Curah Hujan Harian (P)', STATE.rain, 'mm/hari'],
+                ['Emisi Partikulat Cerobong (PM2.5)', STATE.pm25, 'ug/Nm3'],
+                ['Jenis Lapisan Tanah Akuifer', SOIL_PROPS[STATE.soil].name, '-'],
+                ['Intervensi IPAL Biologis-Kimia', STATE.ipal ? 'Aktif' : 'Nonaktif', '-'],
+                ['Intervensi Geomembrane HDPE TPA', STATE.geo ? 'Aktif' : 'Nonaktif', '-'],
+                ['Intervensi Fitoremediasi Riparian', STATE.phyto ? 'Aktif' : 'Nonaktif', '-'],
+                ['Intervensi Wet Scrubber Cerobong', STATE.scrubber ? 'Aktif' : 'Nonaktif', '-'],
+                [],
+                ['HASIL PEMODELAN MATEMATIS', 'NILAI', 'SATUAN'],
+                ['Oksigen Terlarut Jenuh (Cs)', c.Cs, 'mg/L'],
+                ['Oksigen Terlarut Kritis Streeter-Phelps (DOc)', c.minDO, 'mg/L'],
+                ['Jarak Titik Kritis (Xc)', c.critDistKm, 'km'],
+                ['Kecepatan Rembesan Hukum Darcy (vs)', c.v_mday.toFixed(4), 'm/hari'],
+                ['Estimasi Waktu Tempuh Kontaminan ke Sumur Warga (250 m)', c.travelYears.toFixed(2), 'tahun'],
+                [],
+                ['STASIUN', 'DO (mg/L)', 'BOD5 (mg/L)', 'COD (mg/L)', 'TDS (mg/L)', 'pH', 'PM2.5 (ug/m3)', 'STATUS PP 22/2021'],
+                ...Object.entries(c.stations).map(([id, m]) => [
+                    `Stasiun ${id}`, m.do, m.bod, m.cod, m.tds, m.ph, m.pm25, evaluateStationCompliance(m).label
+                ])
+            ];
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(r => r.join(',')).join('\n');
+            const link = document.createElement('a');
+            link.setAttribute('href', encodeURI(csvContent));
+            link.setAttribute('download', `Laporan_Praktikum_EnviroLens_UNIMAL_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Laporan data simulasi (.CSV) berhasil diunduh.');
+        }
+
+        // =====================================================================
+        // 5. VERIFIKASI 3 MISI PRAKTIKUM TERPANDU (PROGRESS BAR & PETUNJUK)
+        // =====================================================================
+        function evaluatePracticalMissions() {
+            const c = STATE.computed;
+            const stB = c.stations.B;
+            const stC = c.stations.C;
+            const stD = c.stations.D;
+
+            // Misi 1: Pemulihan Oksigen Terlarut Sungai (DO Kritis >= 4.0 mg/L & BOD5 Stasiun B <= 3.0 mg/L)
+            const m1 = c.minDO >= 4.0 && stB.bod <= 3.0;
+            const p1Do = Math.min(50, Math.round((c.minDO / 4.0) * 50));
+            const p1Bod = stB.bod <= 3.0 ? 50 : Math.max(0, Math.round((3.0 / stB.bod) * 50));
+            const pct1 = m1 ? 100 : Math.min(95, p1Do + p1Bod);
+
+            // Misi 2: Perlindungan Akuifer Air Tanah & Sumur Warga (Geomembrane aktif & TDS Stasiun D <= 500 mg/L & BOD5 Stasiun C <= 10 mg/L)
+            const m2 = STATE.geo && stD.tds <= 500 && stC.bod <= 10.0;
+            const p2Geo = STATE.geo ? 40 : 0;
+            const p2Tds = stD.tds <= 500 ? 30 : Math.max(0, Math.round((500 / stD.tds) * 30));
+            const p2Bod = stC.bod <= 10.0 ? 30 : Math.max(0, Math.round((10.0 / stC.bod) * 30));
+            const pct2 = m2 ? 100 : Math.min(95, p2Geo + p2Tds + p2Bod);
+
+            // Misi 3: Pengendalian Emisi Udara Industri (PM2.5 Stasiun B <= 55 µg/m³)
+            const m3 = stB.pm25 <= 55.0;
+            const pct3 = m3 ? 100 : Math.min(95, Math.max(10, Math.round((55.0 / stB.pm25) * 100)));
+
+            STATE.completedMissions = { m1, m2, m3 };
+            const doneCount = [m1, m2, m3].filter(Boolean).length;
+            const totalScore = Math.round((doneCount / 3) * 100);
+
+            document.getElementById('mission-counter-badge').textContent = `${doneCount}/3`;
+            document.getElementById('mission-total-score').textContent = `Skor: ${totalScore} / 100`;
+            document.getElementById('mission-overall-bar').style.width = `${totalScore}%`;
+
+            const gradDesc = document.getElementById('graduation-desc');
+            if (doneCount === 3) {
+                gradDesc.innerHTML = `<strong class="text-emerald-300">Selamat! Lencana Kelulusan Praktikum Teraih!</strong> Seluruh parameter air sungai, air tanah, dan udara ambien telah memenuhi Baku Mutu PP No. 22 Tahun 2021.`;
+            } else {
+                gradDesc.textContent = `Terselesaikan ${doneCount} dari 3 misi praktikum. Atur parameter input dan aktifkan intervensi teknologi mitigasi hingga seluruh target tercapai.`;
+            }
+
+            const missionsData = [
+                {
+                    code: 'Misi 1 (40 Poin)',
+                    title: 'Pemulihan Oksigen Terlarut Sungai',
+                    target: 'Capai DO Kritis (DOc) ≥ 4,0 mg/L dan BOD₅ Stasiun B ≤ 3,0 mg/L.',
+                    current: `DOc = ${c.minDO} mg/L | BOD₅ Stasiun B = ${stB.bod} mg/L`,
+                    hint: 'Aktifkan sakelar "IPAL Biologis–Kimia" dan "Fitoremediasi Riparian" pada Tab 1, atau naikkan debit pengenceran sungai hulu (Qs).',
+                    pct: pct1,
+                    done: m1
+                },
+                {
+                    code: 'Misi 2 (35 Poin)',
+                    title: 'Proteksi Akuifer & Sumur Warga',
+                    target: 'Aktifkan Geomembrane HDPE TPA, jaga TDS Sumur D ≤ 500 mg/L dan BOD₅ Stasiun C ≤ 10 mg/L.',
+                    current: `Geomembrane = ${STATE.geo ? 'Aktif' : 'Nonaktif'} | TDS D = ${stD.tds} mg/L | BOD₅ C = ${stC.bod} mg/L`,
+                    hint: 'Aktifkan sakelar "Lapisan Geomembrane HDPE TPA" untuk menahan 95% perkolasi air lindi dari dasar TPA.',
+                    pct: pct2,
+                    done: m2
+                },
+                {
+                    code: 'Misi 3 (25 Poin)',
+                    title: 'Pengendalian Emisi Udara Cerobong',
+                    target: 'Turunkan konsentrasi PM₂.₅ ambien di Stasiun B hingga ≤ 55,0 µg/m³.',
+                    current: `PM₂.₅ Stasiun B = ${stB.pm25} µg/m³`,
+                    hint: 'Aktifkan "Wet Scrubber Cerobong Industri" pada Tab 1 untuk menyisihkan 85% partikulat halus PM2.5 sebelum dilepas ke atmosfer.',
+                    pct: pct3,
+                    done: m3
+                }
+            ];
+
+            document.getElementById('missions-container').innerHTML = missionsData.map(ms => `
+                <div class="glass-card p-3 rounded-xl border-l-4 ${ms.done ? 'border-emerald-400' : 'border-amber-400'} space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-[10px] uppercase tracking-wider ${ms.done ? 'text-emerald-300' : 'text-amber-300'}">${ms.code}</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${ms.done ? 'bg-emerald-500/25 text-emerald-300' : 'bg-black/45 text-slate-300'}">
+                            ${ms.done ? 'Terverifikasi ✓' : `${ms.pct}% Tercapai`}
+                        </span>
+                    </div>
+                    <div class="font-bold text-white">${ms.title}</div>
+                    <p class="text-[11px] text-slate-200">${ms.target}</p>
+                    <div class="w-full h-1.5 bg-black/55 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500 ${ms.done ? 'bg-emerald-400' : 'bg-amber-400'}" style="width: ${ms.pct}%;"></div>
+                    </div>
+                    <div class="font-mono-code text-[10px] text-slate-300 bg-black/45 px-2 py-1 rounded-lg">${ms.current}</div>
+                    <details class="text-[10px] text-amber-200/90 cursor-pointer">
+                        <summary class="font-semibold hover:text-amber-300 select-none">Petunjuk Solusi Rekayasa</summary>
+                        <p class="mt-1 p-2 rounded-lg bg-black/45 text-slate-200 leading-relaxed">${ms.hint}</p>
+                    </details>
+                </div>
+            `).join('');
+        }
+
+        // =====================================================================
+        // 6. ASISTEN KONTEKSTUAL PROF. ENVIRO AI
+        // =====================================================================
+        function toggleApiPopover() {
+            const pop = document.getElementById('api-key-popover');
+            pop.classList.toggle('hidden');
+            if (!pop.classList.contains('hidden')) {
+                document.getElementById('gemini-api-input').value = sessionStorage.getItem('envirolens_gemini_key') || '';
+            }
+        }
+
+        function saveCustomApiKey() {
+            const val = document.getElementById('gemini-api-input').value.trim();
+            if (val) {
+                sessionStorage.setItem('envirolens_gemini_key', val);
+                showToast('Gemini API Key berhasil disimpan untuk sesi ini.');
+            } else {
+                sessionStorage.removeItem('envirolens_gemini_key');
+                showToast('Gemini API Key dihapus — Menggunakan mode lokal.');
+            }
+            document.getElementById('api-key-popover').classList.add('hidden');
+        }
+
+        function sendQuickPrompt(text) {
+            document.getElementById('chat-input').value = text;
+            handleChatSubmit(new Event('submit'));
+        }
+
+        async function handleChatSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+
+            appendChatMessage('user', text);
+            const typingId = appendTypingIndicator();
+            const reply = await queryProfEnviroAI(text);
+            document.getElementById(typingId)?.remove();
+            appendChatMessage('ai', reply);
+        }
+
+        function appendChatMessage(role, html) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = role === 'user' ? 'flex justify-end' : 'flex gap-2.5';
+            div.innerHTML = role === 'user'
+                ? `<div class="bg-emerald-600/35 border border-amber-400/40 rounded-2xl rounded-tr-none px-3.5 py-2 text-white max-w-[85%]">${escapeHtml(html)}</div>`
+                : `<div class="w-7 h-7 rounded-full bg-emerald-500/25 border border-amber-400/50 flex items-center justify-center text-amber-300 font-bold shrink-0 text-[10px]">AI</div>
+                   <div class="glass-card rounded-2xl rounded-tl-none p-3 text-slate-100 max-w-[88%] space-y-1.5">${html}</div>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function appendTypingIndicator() {
+            const id = 'typ-' + Date.now();
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'flex gap-2.5 items-center';
+            div.innerHTML = `<div class="w-7 h-7 rounded-full bg-emerald-500/25 border border-amber-400/50 flex items-center justify-center text-amber-300 font-bold text-[10px]">AI</div>
+                <div class="glass-card rounded-2xl px-3.5 py-2.5 flex gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 typing-dot"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 typing-dot"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 typing-dot"></span>
+                </div>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+            return id;
+        }
+
+        async function queryProfEnviroAI(userQuery) {
+            const apiKey = sessionStorage.getItem('envirolens_gemini_key') || '';
+            if (!apiKey) {
+                return buildContextualLocalResponse(userQuery);
+            }
+
+            const c = STATE.computed;
+            const systemInstruction = `Anda adalah "Prof. Enviro", Asisten Virtual Laboratorium Pengantar Teknik Lingkungan di Program Studi Teknik Lingkungan, Universitas Malikussaleh (UNIMAL).
+Data Simulasi Real-Time Mahasiswa:
+- Input: Q_limbah=${STATE.qw} m3/hari, BOD5_limbah=${STATE.bodw} mg/L, Q_sungai=${STATE.qs} m3/detik, Suhu=${STATE.temp} C, Curah Hujan=${STATE.rain} mm/hari, PM2.5_cerobong=${STATE.pm25} ug/Nm3, Akuifer=${SOIL_PROPS[STATE.soil].name}.
+- Intervensi Teknologi Aktif: IPAL=${STATE.ipal ? 'Aktif' : 'Nonaktif'}, Geomembrane_HDPE=${STATE.geo ? 'Aktif' : 'Nonaktif'}, Fitoremediasi=${STATE.phyto ? 'Aktif' : 'Nonaktif'}, Wet_Scrubber=${STATE.scrubber ? 'Aktif' : 'Nonaktif'}.
+- Hasil Pemodelan: BOD5_StasiunB=${c.stations.B.bod} mg/L, DO_Kritis=${c.minDO} mg/L (pada jarak ${c.critDistKm} km), Kecepatan_Darcy=${c.v_mday.toFixed(4)} m/hari (waktu tiba 250 m = ${c.travelYears.toFixed(1)} tahun), TDS_SumurD=${c.stations.D.tds} mg/L, PM2.5_StasiunB=${c.stations.B.pm25} ug/m3.
+Gunakan Bahasa Indonesia baku akademis (EYD V) yang jelas, rujuk angka simulasi terkini mahasiswa di atas, gunakan tag HTML sederhana (<strong>, <ul>, <li>) tanpa markdown, dan akhiri dengan 1 pertanyaan pemantik analisis (Sokratik).`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    })
+                });
+                if (!res.ok) throw new Error('Fallback');
+                const data = await res.json();
+                const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (reply) return reply;
+                throw new Error('Empty');
+            } catch (e) {
+                return buildContextualLocalResponse(userQuery);
+            }
+        }
+
+        function buildContextualLocalResponse(query) {
+            const c = STATE.computed;
+            const q = query.toLowerCase();
+
+            if (q.includes('kurva') || q.includes('streeter') || q.includes('do') || q.includes('oksigen')) {
+                return `<p>Berdasarkan parameter simulasi Anda (<strong>Q<sub>w</sub> = ${STATE.qw} m³/hari</strong>, <strong>BOD<sub>5</sub> = ${STATE.bodw} mg/L</strong>, dan <strong>Q<sub>s</sub> = ${STATE.qs} m³/detik</strong>), konsentrasi campuran di Stasiun B mencapai <strong>${c.stations.B.bod} mg/L</strong>.</p>
+                <p>Persamaan <strong>Streeter–Phelps</strong> menunjukkan titik oksigen terlarut kritis (<strong>DO<sub>c</sub> = ${c.minDO} mg/L</strong>) terjadi pada jarak <strong>${c.critDistKm} km</strong> di hilir sungai. ${c.minDO < 4.0 ? 'Nilai ini melampaui Baku Mutu PP No. 22 Tahun 2021 Kelas II (minimal 4,0 mg/L). Aktifkan unit <strong>IPAL Biologis–Kimia</strong> dan <strong>Fitoremediasi Riparian</strong> untuk memulihkannya.' : 'Nilai oksigen terlarut ini telah memenuhi Baku Mutu Kelas II (≥ 4,0 mg/L).'}</p>
+                <p class="text-amber-300"><strong>Pertanyaan Analisis:</strong> Mengapa peningkatan suhu air sungai (<em>T</em>) menyebabkan nilai DO<sub>c</sub> turun lebih tajam?</p>`;
+            }
+
+            if (q.includes('darcy') || q.includes('lindi') || q.includes('tanah') || q.includes('sumur')) {
+                return `<p>Pada lapisan akuifer <strong>${SOIL_PROPS[STATE.soil].name}</strong> dengan curah hujan <strong>${STATE.rain} mm/hari</strong>, perhitungan <strong>Hukum Darcy</strong> menghasilkan kecepatan rembesan air tanah sebesar <strong>${c.v_mday.toFixed(4)} m/hari</strong>. Air lindi TPA membutuhkan waktu sekitar <strong>${c.travelYears.toFixed(1)} tahun</strong> untuk menempuh jarak 250 m menuju Sumur Warga (Stasiun D).</p>
+                <p>${STATE.geo ? 'Dengan aktifnya <strong>Lapisan Geomembrane HDPE</strong>, 95% perkolasi lindi berhasil dicegah sehingga TDS Sumur Warga tetap aman di angka <strong>' + c.stations.D.tds + ' mg/L</strong>.' : 'Tanpa pelapis kedap air, TDS Sumur Warga meningkat menjadi <strong>' + c.stations.D.tds + ' mg/L</strong>.'}</p>
+                <p class="text-amber-300"><strong>Pertanyaan Analisis:</strong> Apa perbedaan waktu tempuh air lindi jika lapisan akuifer diubah menjadi <em>Pasir Kasar</em>?</p>`;
+            }
+
+            if (q.includes('udara') || q.includes('pm2') || q.includes('cerobong') || q.includes('emisi')) {
+                return `<p>Dengan beban emisi cerobong <strong>${STATE.pm25} µg/Nm³</strong>, konsentrasi partikulat udara ambien di sekitar Stasiun B tercatat sebesar <strong>${c.stations.B.pm25} µg/m³</strong> (Baku Mutu Udara Ambien PP No. 22 Tahun 2021: <strong>≤ 55,0 µg/m³</strong>).</p>
+                <p>${STATE.scrubber ? 'Unit <strong>Wet Scrubber</strong> yang aktif berhasil menyisihkan 85% partikulat sehingga kualitas udara ambien aman.' : 'Aktifkan <strong>Wet Scrubber Cerobong Industri</strong> pada panel kiri untuk menurunkan emisi partikulat secara signifikan.'}</p>
+                <p class="text-amber-300"><strong>Pertanyaan Analisis:</strong> Bagaimana prinsip kerja cairan penyerap (<em>scrubbing liquid</em>) dalam menangkap partikulat halus PM<sub>2.5</sub>?</p>`;
+            }
+
+            return `<p>Ringkasan audit lingkungan pada simulasi Anda saat ini:</p>
+            <ul class="list-disc pl-4 space-y-1">
+                <li><strong>Sungai:</strong> DO Kritis = <strong>${c.minDO} mg/L</strong> pada jarak <strong>${c.critDistKm} km</strong>.</li>
+                <li><strong>Air Tanah:</strong> TDS Sumur Warga (Stasiun D) = <strong>${c.stations.D.tds} mg/L</strong> (${evaluateStationCompliance(c.stations.D).label}).</li>
+                <li><strong>Udara Ambien:</strong> PM<sub>2.5</sub> Stasiun B = <strong>${c.stations.B.pm25} µg/m³</strong>.</li>
+            </ul>
+            <p class="text-amber-300"><strong>Langkah Lanjutan:</strong> Periksa tab <strong>Misi Praktikum</strong> untuk memverifikasi kelulusan simulasi Anda!</p>`;
+        }
+
+        // =====================================================================
+        // 7. KONTROL NAVIGASI, KAMERA 3D, WEBAR & PERSISTENSI LOGO KUSTOM
+        // =====================================================================
+        function switchLeftTab(tab) {
+            ['params', 'stations', 'charts'].forEach(t => {
+                document.getElementById(`lview-${t}`).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById(`ltab-${t}`);
+                btn.className = t === tab
+                    ? 'py-1.5 px-2 rounded-xl bg-emerald-500/20 text-amber-300 border border-amber-400/40 transition'
+                    : 'py-1.5 px-2 rounded-xl text-slate-300 hover:text-white transition';
+            });
+            if (tab === 'charts') {
+                setTimeout(() => {
+                    drawSagCurveChart();
+                    drawStationBarChart();
+                }, 40);
+            }
+        }
+
+        function toggleLeftPanel() {
+            document.getElementById('left-lab-panel').classList.toggle('-translate-x-[110%]');
+        }
+
+        function toggleAIPanel() {
+            document.getElementById('ai-tutor-panel').classList.toggle('translate-x-[110%]');
+        }
+
+        function switchAIMode(mode) {
+            document.getElementById('ai-view-chat').classList.toggle('hidden', mode !== 'chat');
+            document.getElementById('ai-view-mission').classList.toggle('hidden', mode !== 'mission');
+            document.getElementById('ai-tab-chat').className = mode === 'chat'
+                ? 'py-1.5 rounded-xl bg-emerald-500/20 text-amber-300 border border-amber-400/40 transition'
+                : 'py-1.5 rounded-xl text-slate-300 hover:text-white transition';
+            document.getElementById('ai-tab-mission').className = mode === 'mission'
+                ? 'py-1.5 rounded-xl bg-emerald-500/20 text-amber-300 border border-amber-400/40 transition'
+                : 'py-1.5 rounded-xl text-slate-300 hover:text-white transition';
+        }
+
+        function focusStationIn3D(stId) {
+            const st = STATION_META[stId];
+            if (!st) return;
+            if (STATE.autoOrbit) toggleAutoOrbit(false);
+            cameraTarget.copy(st.camTarget);
+            spherical.set(st.camSpherical.radius, st.camSpherical.phi, st.camSpherical.theta);
+            updateCameraFromSpherical();
+            if ((stId === 'C' || stId === 'D') && !STATE.isXRay) {
+                toggleXRay();
+            }
+        }
+
+        function toggleAutoOrbit(forceState) {
+            STATE.autoOrbit = typeof forceState === 'boolean' ? forceState : !STATE.autoOrbit;
+            const btn = document.getElementById('btn-autotour');
+            const lbl = document.getElementById('autotour-label');
+            if (STATE.autoOrbit) {
+                btn.className = 'px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition bg-emerald-500/25 text-amber-300 border border-amber-400/60';
+                if (lbl) lbl.textContent = 'Tur 360°: ON';
+                showToast('Tur 360° otomatis aktif — Seret layar kapan saja untuk kendali manual.');
+            } else {
+                btn.className = 'px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition bg-black/50 hover:bg-emerald-900/60 text-emerald-200 border border-emerald-700/70';
+                if (lbl) lbl.textContent = 'Tur 360°';
+            }
+        }
+
+        function setCameraAngle(preset) {
+            if (STATE.autoOrbit) toggleAutoOrbit(false);
+            if (preset === 'isometric') {
+                cameraTarget.set(0, 0.3, 0);
+                spherical.set(20.2, Math.PI / 3.05, 0.14);
+            } else if (preset === 'subsurface') {
+                cameraTarget.set(2.5, -1.4, 1.2);
+                spherical.set(15.5, Math.PI / 2.15, 0.25);
+                if (!STATE.isXRay) toggleXRay();
+            } else if (preset === 'river') {
+                cameraTarget.set(-1.5, 1.2, -1.8);
+                spherical.set(13.0, Math.PI / 3.4, -0.2);
+            } else if (preset === 'tpa') {
+                cameraTarget.set(2.2, 0.8, 2.6);
+                spherical.set(12.5, Math.PI / 3.1, 0.35);
+            }
+            updateCameraFromSpherical();
+        }
+
+        function toggleXRay() {
+            STATE.isXRay = !STATE.isXRay;
+            if (terrainTopMesh) terrainTopMesh.material.opacity = STATE.isXRay ? 0.22 : 1.0;
+            if (vadoseMesh) vadoseMesh.material.opacity = STATE.isXRay ? 0.28 : 0.88;
+            if (aquiferMesh) aquiferMesh.material.opacity = STATE.isXRay ? 0.84 : 0.65;
+            document.getElementById('xray-label').textContent = `X-Ray Tanah: ${STATE.isXRay ? 'ON' : 'OFF'}`;
+            document.getElementById('xray-legend-card').classList.toggle('hidden', !STATE.isXRay);
+            showToast(STATE.isXRay ? 'Mode X-Ray Tanah Aktif: Lapisan permukaan dibuat transparan.' : 'Mode X-Ray Tanah dimatikan.');
+        }
+
+        async function toggleARMode() {
+            const video = document.getElementById('ar-video');
+            const grid = document.getElementById('ar-plane-grid');
+            const label = document.getElementById('ar-btn-text');
+
+            if (!STATE.isARMode) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    scene.fog = null;
+                    STATE.isARMode = true;
+                    label.textContent = 'Matikan WebAR';
+                    showToast('Kamera WebAR Aktif! Diorama 3D diproyeksikan ke dunia nyata.');
+                } catch (err) {
+                    grid.style.display = 'block';
+                    document.body.style.background = 'radial-gradient(circle at center, #064e3b 0%, #021210 100%)';
+                    scene.fog = null;
+                    STATE.isARMode = true;
+                    label.textContent = 'Plane AR Aktif';
+                    showToast('Kamera tidak tersedia — Beralih ke Mode Proyeksi Plane AR.');
+                }
+            } else {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                    video.srcObject = null;
+                }
+                video.style.display = 'none';
+                grid.style.display = 'none';
+                document.body.style.background = 'radial-gradient(circle at 50% 35%, #072621 0%, #03110f 70%, #010908 100%)';
+                scene.fog = new THREE.FogExp2(0x03110f, 0.014);
+                STATE.isARMode = false;
+                label.textContent = 'Mode WebAR';
+            }
+        }
+
+        function toggleWelcomeModal(show) {
+            document.getElementById('welcome-modal').classList.toggle('hidden', !show);
+        }
+
+        function showToast(msg) {
+            const box = document.getElementById('toast-box');
+            document.getElementById('toast-content').textContent = msg;
+            box.classList.remove('opacity-0');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => box.classList.add('opacity-0'), 3400);
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        window.onload = function () {
+            loadStudentIdentity();
+            updateAllSliderFills();
+            initThreeScene();
+            initSagChartHover();
+            refreshAllViews();
+            if (window.innerWidth < 768) {
+                document.getElementById('ai-tutor-panel').classList.add('translate-x-[110%]');
+            }
+        };
+    </script>
+</body>
+</html>
